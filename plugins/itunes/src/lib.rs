@@ -50,11 +50,13 @@ fn lookup_url(id: &str, entity: &str, country: &str, limit: Option<&str>) -> Str
     format!("{API}/lookup?{}", query(&pairs))
 }
 
-/// `None` without a cursor (the first page); a non-digit cursor is refused rather than sent on.
-fn offset(cursor: Option<&str>) -> Result<&str, Error> {
+/// `0` without a cursor (the first page). Parsed to `u32` once here, since both the next-page
+/// math and the URL need a number: a cursor that isn't a plain decimal is refused outright,
+/// one that's all digits but past `u32::MAX` is treated as a page that doesn't exist.
+fn offset(cursor: Option<&str>) -> Result<u32, Error> {
     match cursor {
-        None => Ok("0"),
-        Some(c) if api::is_id(c) => Ok(c),
+        None => Ok(0),
+        Some(c) if api::is_id(c) => c.parse().map_err(|_| Error::NotFound),
         Some(c) => Err(Error::Internal(format!("bad cursor {c:?}"))),
     }
 }
@@ -77,10 +79,11 @@ impl search::Guest for Itunes {
             Artist => "musicArtist",
             Playlist => unreachable!("filtered out above"),
         };
-        let (limit, offset) = (req.limit.to_string(), offset(req.cursor.as_deref())?);
+        let offset = offset(req.cursor.as_deref())?;
+        let (limit, offset_s) = (req.limit.to_string(), offset.to_string());
         let reqs: Vec<Request> = kinds
             .iter()
-            .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit, offset), headers: vec![], body: None })
+            .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit, &offset_s), headers: vec![], body: None })
             .collect();
         let bodies: Vec<Vec<u8>> = host_http::send_batch(&reqs)
             .into_iter()
@@ -98,8 +101,7 @@ impl search::Guest for Itunes {
             full_page |= parts.total == req.limit;
         }
         if full_page {
-            let next = offset.parse::<u32>().unwrap_or(0).saturating_add(req.limit);
-            out.next = Some(next.to_string());
+            out.next = Some(offset.saturating_add(req.limit).to_string());
         }
         Ok(out)
     }
@@ -140,3 +142,25 @@ impl entity::Guest for Itunes {
 }
 
 export!(Itunes);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dbg<T: std::fmt::Debug>(v: T) -> String {
+        format!("{v:?}")
+    }
+
+    #[test]
+    fn offset_parses_once_and_bounds_overflow() {
+        assert_eq!(dbg(offset(None)), dbg(Ok::<u32, Error>(0)));
+        assert_eq!(dbg(offset(Some("5"))), dbg(Ok::<u32, Error>(5)));
+        assert_eq!(dbg(offset(Some("4294967295"))), dbg(Ok::<u32, Error>(u32::MAX)));
+        // Not a plain decimal: refused rather than sent on.
+        assert!(matches!(offset(Some("-1")), Err(Error::Internal(_))));
+        assert!(matches!(offset(Some("abc")), Err(Error::Internal(_))));
+        // All digits but past `u32::MAX`: no such page, not an internal error.
+        assert_eq!(dbg(offset(Some("4294967296"))), dbg(Err::<u32, _>(Error::NotFound)));
+        assert_eq!(dbg(offset(Some("99999999999999999999"))), dbg(Err::<u32, _>(Error::NotFound)));
+    }
+}

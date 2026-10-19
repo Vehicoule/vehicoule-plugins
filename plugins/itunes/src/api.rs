@@ -41,8 +41,9 @@ fn envelope(body: &[u8]) -> Result<Envelope, Error> {
     serde_json::from_slice(body).map_err(|e| Error::Internal(e.to_string()))
 }
 
-// Only the fields in use; absent/malformed optional fields degrade gracefully, a missing
-// mandatory one (id, name) fails that one item's `from_value` so it is skipped (ruling 4).
+// Only the fields in use; absent/malformed optional fields degrade gracefully. A missing
+// mandatory one (the id or name field below) fails that one item's `from_value`, so
+// `parse_results` and friends skip just that item rather than the whole response.
 
 #[derive(Deserialize)]
 struct ItTrack {
@@ -182,7 +183,8 @@ pub fn parse_track(body: &[u8]) -> Result<Track, Error> {
 }
 
 /// An album lookup (`lookup?id=<id>&entity=song`): the one `"collection"` item is the album,
-/// every `"track"` item after it is a track, ordered by track number then disc number.
+/// every `"track"` item after it is a track, ordered by disc then track number so a
+/// multi-disc album doesn't interleave its discs.
 pub fn parse_album_tracks(body: &[u8]) -> Result<(Album, Vec<Track>), Error> {
     let env = envelope(body)?;
     let mut found_album = None;
@@ -196,13 +198,13 @@ pub fn parse_album_tracks(body: &[u8]) -> Result<(Album, Vec<Track>), Error> {
             }
             Some("track") => {
                 if let Ok(t) = serde_json::from_value::<ItTrack>(item) {
-                    tracks.push((t.track_number, t.disc_number, track(t)));
+                    tracks.push((t.disc_number, t.track_number, track(t)));
                 }
             }
             _ => {}
         }
     }
-    tracks.sort_by_key(|(track_number, disc_number, _)| (*track_number, *disc_number));
+    tracks.sort_by_key(|(disc_number, track_number, _)| (*disc_number, *track_number));
     Ok((found_album.ok_or(Error::NotFound)?, tracks.into_iter().map(|(_, _, t)| t).collect()))
 }
 
@@ -231,15 +233,19 @@ pub fn parse_artist_albums(body: &[u8]) -> Result<(Artist, Vec<Album>), Error> {
 }
 
 /// `music.apple.com/<cc>/album/<slug>/<id>` (`?i=<trackId>` names that track instead),
-/// `/artist/<slug>/<id>`; `itunes.apple.com` legacy links in the same shape. Scheme and host
-/// are matched in any case; a playlist link (and anything else iTunes does not serve) is
-/// `None`, not an error.
+/// `/artist/<slug>/<id>`, `/song/<slug>/<id>`; `itunes.apple.com` legacy links (and the
+/// region-redirected `geo.music.apple.com`) in the same shape. Scheme and host are matched in
+/// any case; a playlist link (and anything else iTunes does not serve) is `None`, not an
+/// error.
 pub fn parse_link(url: &str) -> Option<EntityRef> {
     let (host, rest) = split(url)?;
-    if host != "music.apple.com" && host != "itunes.apple.com" {
+    if host != "music.apple.com" && host != "itunes.apple.com" && host != "geo.music.apple.com" {
         return None;
     }
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
+    // A fragment can trail either the bare path (no `?`) or the query string; strip it from
+    // whichever one actually has it, before the query is read for `i=`.
+    let query = query.split('#').next().unwrap_or(query);
     let path = path.split('#').next().unwrap_or(path).trim_end_matches('/').to_ascii_lowercase();
     let parts: Vec<&str> = path.split('/').collect();
     let [cc, kind, _slug, raw_id] = parts[..] else { return None };
@@ -252,6 +258,7 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
         return None;
     }
     match kind {
+        "song" => Some(EntityRef { kind: EntityKind::Track, id: id.to_string() }),
         "album" => match query.split('&').find_map(|p| p.strip_prefix("i=")) {
             Some(track_id) => is_id(track_id).then(|| EntityRef { kind: EntityKind::Track, id: track_id.to_string() }),
             None => Some(EntityRef { kind: EntityKind::Album, id: id.to_string() }),
@@ -296,6 +303,7 @@ mod tests {
         let songs = parse_results(fixture!("search/search_song.json")).unwrap();
         assert_eq!((songs.tracks.len(), songs.albums.len(), songs.artists.len(), songs.total), (2, 0, 0, 2));
         assert_eq!(songs.tracks[0].title, "Instant Crush");
+        assert_eq!(songs.tracks[0].duration_ms, Some(337_562));
         assert_eq!(songs.tracks[0].artists[0].name, "Daft Punk & Julian Casablancas");
         assert_eq!(
             dbg(&songs.tracks[0].album),
@@ -311,6 +319,35 @@ mod tests {
         assert_eq!((artists.tracks.len(), artists.albums.len(), artists.artists.len()), (0, 0, 2));
         assert_eq!(artists.artists[0].id.as_str(), "5468295");
         assert_eq!(artists.artists[0].name, "Daft Punk");
+    }
+
+    /// A hand-made, deliberately shuffled two-disc lookup body. The old `(track_number,
+    /// disc_number)` sort key groups by track number first, so it interleaves discs
+    /// (d1t1, d2t1, d1t2, d2t2); the correct `(disc_number, track_number)` key keeps each
+    /// disc together (d1t1, d1t2, d2t1, d2t2).
+    #[test]
+    fn album_tracks_sort_by_disc_then_track_number() {
+        let body = br#"{"resultCount":5,"results":[
+            {"wrapperType":"collection","collectionId":1,"collectionName":"Two Discs"},
+            {"wrapperType":"track","trackId":10,"trackName":"D1T2","discNumber":1,"trackNumber":2},
+            {"wrapperType":"track","trackId":11,"trackName":"D2T1","discNumber":2,"trackNumber":1},
+            {"wrapperType":"track","trackId":12,"trackName":"D1T1","discNumber":1,"trackNumber":1},
+            {"wrapperType":"track","trackId":13,"trackName":"D2T2","discNumber":2,"trackNumber":2}
+        ]}"#;
+        let (_album, tracks) = parse_album_tracks(body).unwrap();
+        let names: Vec<&str> = tracks.iter().map(|t| t.title.as_str()).collect();
+        assert_eq!(names, ["D1T1", "D1T2", "D2T1", "D2T2"]);
+    }
+
+    #[test]
+    fn explicit_track_is_flagged() {
+        let body = br#"{"resultCount":2,"results":[
+            {"wrapperType":"track","trackId":1,"trackName":"Clean","trackExplicitness":"notExplicit"},
+            {"wrapperType":"track","trackId":2,"trackName":"Dirty","trackExplicitness":"explicit"}
+        ]}"#;
+        let parts = parse_results(body).unwrap();
+        assert!(!parts.tracks[0].explicit, "{:?}", parts.tracks[0]);
+        assert!(parts.tracks[1].explicit, "{:?}", parts.tracks[1]);
     }
 
     #[test]
@@ -381,6 +418,18 @@ mod tests {
         assert_eq!(
             link("https://itunes.apple.com/us/artist/daft-punk/id5468295"),
             Some((EntityKind::Artist, "5468295".into()))
+        );
+        // A direct song link (no album context at all).
+        assert_eq!(link("https://music.apple.com/us/song/instant-crush/617154362"), Some((EntityKind::Track, "617154362".into())));
+        // The region-redirected host, same shape.
+        assert_eq!(
+            link("https://geo.music.apple.com/fr/album/random-access-memories/617154241"),
+            Some((EntityKind::Album, "617154241".into()))
+        );
+        // A fragment after the `i=` query is stripped before the track id is read.
+        assert_eq!(
+            link("https://music.apple.com/fr/album/instant-crush/617154241?i=617154362#t"),
+            Some((EntityKind::Track, "617154362".into()))
         );
         // Playlists are not served by this API; another domain is not ours.
         assert_eq!(link("https://music.apple.com/fr/playlist/french-touch/pl.abc123"), None);

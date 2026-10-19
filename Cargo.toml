@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+# Plugin crates (plugins/deezer, plugins/itunes, plugins/lrclib) are added as tasks 4-6 land.
+members = ["tests"]
+default-members = ["tests"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+# In a plugin, a panic becomes a trap, which the host reports as `internal`.
+panic = "abort"

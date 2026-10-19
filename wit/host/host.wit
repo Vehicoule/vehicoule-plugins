@@ -1,0 +1,61 @@
+package vehicoule:host@1.0.0;
+
+interface http {
+    enum method { get, head, post }
+
+    record request {
+        method: method,
+        url: string,
+        headers: list<tuple<string, string>>,
+        body: option<list<u8>>,
+    }
+
+    record response {
+        status: u16,
+        /// Final URL, after redirects.
+        url: string,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    }
+
+    variant http-error {
+        /// DNS, connection or TLS failure.
+        network(string),
+        timeout,
+        /// Body over the per-response cap.
+        too-large,
+        /// Domain not in the manifest, private address, or scheme refused.
+        denied(string),
+        /// Request count or byte budget of this call is spent.
+        budget-exceeded,
+    }
+
+    send: func(req: request) -> result<response, http-error>;
+    /// At most 8 requests, run concurrently; results keep the request order.
+    send-batch: func(reqs: list<request>) -> list<result<response, http-error>>;
+}
+
+/// Per-plugin key-value space, persisted by the host.
+interface kv {
+    variant kv-error { too-large, quota-exceeded }
+    get: func(key: string) -> option<list<u8>>;
+    set: func(key: string, value: list<u8>) -> result<_, kv-error>;
+    delete: func(key: string);
+}
+
+interface clock {
+    /// Unix time in milliseconds.
+    now-ms: func() -> u64;
+}
+
+interface log {
+    enum level { debug, info, warn, error }
+    log: func(level: level, message: string);
+}
+
+world imports {
+    import http;
+    import kv;
+    import clock;
+    import log;
+}

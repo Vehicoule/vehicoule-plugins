@@ -1,0 +1,175 @@
+package vehicoule:music@1.0.0;
+
+interface types {
+    variant error {
+        network(string),
+        /// Bot check, captcha, blocked IP: the provider refuses the session.
+        provider-wall(string),
+        rate-limited,
+        not-found,
+        expired,
+        internal(string),
+    }
+
+    record image { url: string, width: option<u32>, height: option<u32> }
+    /// `id` is none when the provider only gives a name.
+    record artist-ref { id: option<string>, name: string }
+    record album-ref { id: option<string>, title: string }
+
+    record track {
+        id: string,
+        title: string,
+        artists: list<artist-ref>,
+        album: option<album-ref>,
+        duration-ms: option<u32>,
+        isrc: option<string>,
+        explicit: bool,
+        artwork: list<image>,
+    }
+
+    record album {
+        id: string,
+        title: string,
+        artists: list<artist-ref>,
+        year: option<u16>,
+        track-count: option<u32>,
+        artwork: list<image>,
+    }
+
+    record artist { id: string, name: string, artwork: list<image> }
+
+    record playlist {
+        id: string,
+        title: string,
+        owner: option<string>,
+        description: option<string>,
+        track-count: option<u32>,
+        artwork: list<image>,
+    }
+
+    enum entity-kind { track, album, artist, playlist }
+    record entity-ref { kind: entity-kind, id: string }
+
+    /// What the core knows about a track, whatever its source.
+    /// `id` is this plugin's own id for it, when known.
+    record track-query {
+        id: option<string>,
+        title: string,
+        artists: list<string>,
+        album: option<string>,
+        duration-ms: option<u32>,
+        isrc: option<string>,
+    }
+}
+
+interface search {
+    use types.{error, track, album, artist, playlist, entity-kind};
+    record search-request {
+        query: string,
+        /// Empty = every kind.
+        kinds: list<entity-kind>,
+        /// ISO 3166-1 alpha-2, uppercase.
+        region: string,
+        /// Per kind.
+        limit: u32,
+        cursor: option<string>,
+    }
+    record search-results {
+        tracks: list<track>,
+        albums: list<album>,
+        artists: list<artist>,
+        playlists: list<playlist>,
+        next: option<string>,
+    }
+    search: func(req: search-request) -> result<search-results, error>;
+}
+
+interface suggest {
+    use types.{error};
+    suggest: func(prefix: string, region: string) -> result<list<string>, error>;
+}
+
+interface entity {
+    use types.{error, track, album, artist, playlist, entity-ref};
+    variant entity { track(track), album(album), artist(artist), playlist(playlist) }
+    record entity-page {
+        entity: entity,
+        /// Album or playlist tracks, or an artist's top tracks.
+        tracks: list<track>,
+        /// An artist's albums; empty for other kinds.
+        albums: list<album>,
+        /// Cursor for the next page: of `tracks`, or of `albums` for an artist.
+        next: option<string>,
+    }
+    fetch: func(target: entity-ref, region: string, cursor: option<string>) -> result<entity-page, error>;
+    /// `none` when the link does not belong to this provider.
+    parse-link: func(url: string) -> result<option<entity-ref>, error>;
+}
+
+interface resolve {
+    use types.{error, track-query};
+    enum quality { low, normal, high }
+    record resolve-request {
+        track: track-query,
+        quality: quality,
+        region: string,
+        /// Provider ids already tried for this track; skip them.
+        tried: list<string>,
+    }
+    record source {
+        url: string,
+        headers: list<tuple<string, string>>,
+        /// Unix ms; none = no known expiry.
+        expires-at-ms: option<u64>,
+        mime: string,
+        /// Bits per second.
+        bitrate: u32,
+        content-length: option<u64>,
+        /// Loudness in dB above -14 LUFS integrated (positive = turn down).
+        loudness-db: option<f32>,
+    }
+    record candidate {
+        id: string,
+        title: string,
+        artists: list<string>,
+        duration-ms: option<u32>,
+        score: f32,
+    }
+    record resolved {
+        /// Provider id of the resolved recording; the core stores it as an external ref.
+        id: string,
+        source: source,
+        /// Other plausible matches, best first, for manual correction.
+        candidates: list<candidate>,
+    }
+    resolve: func(req: resolve-request) -> result<resolved, error>;
+}
+
+interface lyrics {
+    use types.{error, track-query};
+    record line { start-ms: u32, text: string }
+    record lyrics { plain: option<string>, synced: list<line> }
+    fetch: func(track: track-query) -> result<lyrics, error>;
+}
+
+interface radio {
+    use types.{error, track, track-query};
+    radio: func(seed: track-query, region: string, limit: u32) -> result<list<track>, error>;
+}
+
+/// Host-side view: every capability. A plugin targets its own world with only what it implements.
+world plugin {
+    include vehicoule:host/imports@1.0.0;
+    export search;
+    export suggest;
+    export entity;
+    export resolve;
+    export lyrics;
+    export radio;
+}
+
+/// Guest-side helpers (the SDK): host imports and shared types, no exports.
+world sdk {
+    include vehicoule:host/imports@1.0.0;
+    import types;
+}

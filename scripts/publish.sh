@@ -16,6 +16,14 @@ if ! command -v vehicoule-feed >/dev/null 2>&1; then
     echo "  cargo install --git file:///Users/btw/Documents/repo/Vehicoule --tag plugin-host-v1.0.0 plugin-host --bin vehicoule-feed" >&2
     exit 1
 fi
+if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq not found on PATH." >&2
+    exit 1
+fi
+if ! command -v shasum >/dev/null 2>&1; then
+    echo "error: shasum not found on PATH." >&2
+    exit 1
+fi
 if [ -z "${VEHICOULE_FEED_KEY:-}" ]; then
     echo "error: VEHICOULE_FEED_KEY must be set to a signing key file (see 'vehicoule-feed keygen')." >&2
     exit 1
@@ -54,13 +62,16 @@ for manifest in "$root"/plugins/*/manifest.json; do
     entries="$(jq -c ". + [$entry]" <<<"$entries")"
 done
 
+# Computed in memory first: feed/sequence is only persisted once signing below has
+# actually succeeded, so a failed sign (bad/missing key) never burns a sequence number.
 sequence_file="$root/feed/sequence"
 sequence=$(( $(cat "$sequence_file") + 1 ))
-echo "$sequence" > "$sequence_file"
 
 payload="$out/payload.json"
 jq -n --arg name "$feed_name" --argjson sequence "$sequence" --argjson plugins "$entries" \
     '{name: $name, sequence: $sequence, plugins: $plugins}' >"$payload"
 
-vehicoule-feed sign "$payload" "$VEHICOULE_FEED_KEY" >"$out/feed.json"
+vehicoule-feed sign "$payload" "$VEHICOULE_FEED_KEY" >"$out/feed.json.tmp"
+mv "$out/feed.json.tmp" "$out/feed.json"
+echo "$sequence" > "$sequence_file"
 echo "published sequence $sequence -> $out/feed.json" >&2

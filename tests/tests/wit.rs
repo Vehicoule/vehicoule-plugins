@@ -17,11 +17,10 @@ fn wit_deps_match_sdk() {
     }
 }
 
-/// `scripts/publish.sh`, run against a fake (empty) plugin set in a temp copy of the repo
-/// root so the real `feed/sequence` is never touched, produces a `feed.json` that
-/// `plugin_host::verify_feed` accepts under the key `vehicoule-feed keygen` just printed.
-#[test]
-fn published_feed_verifies() {
+/// A fake repo root (temp dir) with `scripts/publish.sh` copied in, an empty `plugins/`
+/// (zero to build today), and `feed/sequence` at `"0"` — so a test can run the real
+/// script without ever touching this repo's own `feed/sequence`.
+fn fake_root() -> tempfile::TempDir {
     let repo = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
     let root = tempfile::tempdir().expect("tempdir for fake repo root");
 
@@ -35,6 +34,15 @@ fn published_feed_verifies() {
     std::fs::create_dir_all(root.path().join("plugins")).unwrap(); // no plugins today: zero to build
     std::fs::create_dir_all(root.path().join("feed")).unwrap();
     std::fs::write(root.path().join("feed/sequence"), "0\n").unwrap();
+    root
+}
+
+/// `scripts/publish.sh`, run against a fake (empty) plugin set in a temp copy of the repo
+/// root so the real `feed/sequence` is never touched, produces a `feed.json` that
+/// `plugin_host::verify_feed` accepts under the key `vehicoule-feed keygen` just printed.
+#[test]
+fn published_feed_verifies() {
+    let root = fake_root();
 
     let key_dir = tempfile::tempdir().expect("tempdir for test key");
     let key_path = key_dir.path().join("test.key");
@@ -62,4 +70,25 @@ fn published_feed_verifies() {
     assert_eq!(feed.name, "official");
     assert_eq!(feed.sequence, 1);
     assert!(feed.plugins.is_empty());
+}
+
+/// If `vehicoule-feed sign` fails (here: `VEHICOULE_FEED_KEY` points at a key file that
+/// does not exist), the script must exit non-zero without ever bumping `feed/sequence` or
+/// leaving a `feed.json` behind — a failed run must not burn a sequence number.
+#[test]
+fn failed_sign_keeps_sequence() {
+    let root = fake_root();
+    let missing_key = root.path().join("no-such.key");
+    let out_dir = root.path().join("out");
+
+    let publish = Command::new(root.path().join("scripts/publish.sh"))
+        .arg(&out_dir)
+        .env("VEHICOULE_FEED_KEY", &missing_key)
+        .output()
+        .expect("running publish.sh");
+    assert!(!publish.status.success(), "publish.sh should fail when the signing key is missing");
+
+    let sequence = std::fs::read_to_string(root.path().join("feed/sequence")).unwrap();
+    assert_eq!(sequence.trim(), "0", "feed/sequence must stay unchanged when signing fails");
+    assert!(!out_dir.join("feed.json").exists(), "feed.json must not exist when signing fails");
 }

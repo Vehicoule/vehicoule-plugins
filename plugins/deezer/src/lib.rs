@@ -124,8 +124,9 @@ impl entity::Guest for Deezer {
                 Ok(page(Entity::Track(track), vec![], vec![], None))
             }
             EntityKind::Album => {
+                // `limit=1`: the album without its embedded track list, which is paged below.
                 let b = get_all(vec![
-                    format!("{API}/album/{id}"),
+                    format!("{API}/album/{id}?limit=1"),
                     format!("{API}/album/{id}/tracks?index={index}&limit={TRACKS_PAGE}"),
                 ])?;
                 let album = api::parse_album(&b[0])?;
@@ -161,8 +162,9 @@ impl entity::Guest for Deezer {
                 Ok(page(Entity::Artist(artist), tracks, albums, next))
             }
             EntityKind::Playlist => {
+                // `limit=1`: the playlist without its embedded tracks (up to 400), paged below.
                 let b = get_all(vec![
-                    format!("{API}/playlist/{id}"),
+                    format!("{API}/playlist/{id}?limit=1"),
                     format!("{API}/playlist/{id}/tracks?index={index}&limit={TRACKS_PAGE}"),
                 ])?;
                 let playlist = api::parse_playlist(&b[0])?;
@@ -172,8 +174,9 @@ impl entity::Guest for Deezer {
         }
     }
 
-    /// A share link is followed (the host does the redirects) and its final URL parsed; one
-    /// that leads nowhere (`/deezer-links-404`) is `not-found`.
+    /// A share link is followed (the host does the redirects) and its final URL parsed. When
+    /// that URL names nothing, a refused request keeps its typed error (429 → `rate-limited`)
+    /// and a dead link (404 at `/deezer-links-404`) is `not-found`.
     fn parse_link(url: String) -> Result<Option<EntityRef>, Error> {
         if let Some(target) = links::parse_link(&url) {
             return Ok(Some(target));
@@ -181,22 +184,36 @@ impl entity::Guest for Deezer {
         if !links::is_short_link(&url) {
             return Ok(None);
         }
-        let url = match url.strip_prefix("http://") {
-            Some(rest) => format!("https://{rest}"),
-            None => url,
+        let url = match url.get(..7) {
+            Some(scheme) if scheme.eq_ignore_ascii_case("http://") => format!("https://{}", &url[7..]),
+            _ => url,
         };
         let resp = host_http::send(&get_request(url)).map_err(from_http_error)?;
-        links::parse_link(&resp.url).map(Some).ok_or(Error::NotFound)
+        match links::parse_link(&resp.url) {
+            Some(target) => Ok(Some(target)),
+            None => Err(status_error(resp.status).unwrap_or(Error::NotFound)),
+        }
     }
 }
 
 impl radio::Guest for Deezer {
-    /// The radio of the seed's artist: the seed by its id, else the first search match.
+    /// The radio of the seed's artist: the seed by its id, else (no id, or one Deezer no
+    /// longer knows) the first search match.
     fn radio(seed: TrackQuery, _region: String, limit: u32) -> Result<Vec<Track>, Error> {
-        let track = match seed.id.filter(|id| links::is_id(id)) {
-            Some(id) => api::parse_track(&get(format!("{API}/track/{id}"))?)?,
+        let by_id = match seed.id.as_deref().filter(|id| links::is_id(id)) {
+            Some(id) => match get(format!("{API}/track/{id}")).and_then(|body| api::parse_track(&body)) {
+                Err(Error::NotFound) => None,
+                found => Some(found?),
+            },
+            None => None,
+        };
+        let track = match by_id {
+            Some(track) => track,
             None => {
                 let q = format!("{} {}", seed.artists.first().map_or("", String::as_str), seed.title);
+                if q.trim().is_empty() {
+                    return Err(Error::NotFound);
+                }
                 let found = api::parse_tracks(&get(search_url("track", q.trim(), "1", "0"))?)?.0;
                 found.into_iter().next().ok_or(Error::NotFound)?
             }

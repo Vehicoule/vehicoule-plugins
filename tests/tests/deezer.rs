@@ -46,6 +46,9 @@ async fn short_link_follows_redirect() {
     // A dead share link lands on /deezer-links-404.
     let dead = host.parse_link(&plugin, "https://link.deezer.com/s/31nhZMumBaLkQg77gDv3x").await;
     assert_eq!(dead.unwrap_err(), CallError::NotFound);
+    // Refused before any redirect (hand-built recording): typed, not a dead link.
+    let limited = host.parse_link(&plugin, "https://link.deezer.com/s/30RateLimitedByHand").await;
+    assert_eq!(limited.unwrap_err(), CallError::RateLimited);
     // Full links need no request (none is recorded for them); other domains are not ours.
     let full = host.parse_link(&plugin, "https://www.deezer.com/fr/album/302127").await.unwrap();
     assert_eq!(dbg(full), dbg(Some(target(EntityKind::Album, "302127"))));
@@ -135,5 +138,11 @@ async fn radio_from_seed_track() {
     assert_eq!(radio[0].artwork[0].width, Some(1000));
     // Without an id, the first search match is the seed.
     let searched = host.radio(&plugin, seed(None), "FR", 5).await.unwrap();
-    assert_eq!(dbg(searched), dbg(radio));
+    assert_eq!(dbg(searched), dbg(&radio));
+    // An id Deezer no longer knows (`{"error":{"code":800}}`) falls back to the search.
+    let stale = host.radio(&plugin, seed(Some("0")), "FR", 5).await.unwrap();
+    assert_eq!(dbg(stale), dbg(&radio));
+    // Nothing to search for: `not-found` without a request (none is recorded for it).
+    let blank = TrackQuery { title: String::new(), artists: vec![], ..seed(None) };
+    assert_eq!(host.radio(&plugin, blank, "FR", 5).await.unwrap_err(), CallError::NotFound);
 }

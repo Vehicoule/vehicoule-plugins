@@ -67,15 +67,17 @@ fn parse<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
 }
 
 #[derive(Deserialize)]
-struct List<T> {
-    data: Vec<T>,
+struct List {
+    data: Vec<serde_json::Value>,
     /// The URL of the next page, absent on the last one.
     next: Option<String>,
 }
 
+/// An item Deezer sends malformed (a null title…) is skipped, not the whole page.
 fn page<D: DeserializeOwned, T>(body: &[u8], map: fn(D) -> T) -> Result<Page<T>, Error> {
-    let list: List<D> = parse(body)?;
-    Ok((list.data.into_iter().map(map).collect(), list.next.as_deref().and_then(next_index)))
+    let list: List = parse(body)?;
+    let items = list.data.into_iter().filter_map(|item| serde_json::from_value(item).ok()).map(map).collect();
+    Ok((items, list.next.as_deref().and_then(next_index)))
 }
 
 /// `…?limit=100&index=100` → `100`.
@@ -286,6 +288,16 @@ mod tests {
         assert_eq!(dbg(parse_tracks(quota)), dbg(Err::<(), _>(Error::RateLimited)));
         assert_eq!(dbg(parse_track(not_found)), dbg(Err::<(), _>(Error::NotFound)));
         assert_eq!(dbg(parse_playlist(not_found)), dbg(Err::<(), _>(Error::NotFound)));
+    }
+
+    #[test]
+    fn one_bad_item_does_not_fail_the_page() {
+        let body = br#"{"data":[{"id":1,"title":"Good","artist":{"id":2,"name":"A"}},
+            {"id":3,"title":null,"artist":{"id":2,"name":"A"}},{"id":"x"}],
+            "next":"https://api.deezer.com/search/track?q=a&limit=3&index=3"}"#;
+        let (tracks, next) = parse_tracks(body).unwrap();
+        assert_eq!(tracks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>(), ["Good"]);
+        assert_eq!(next.as_deref(), Some("3"));
     }
 
     #[test]

@@ -36,17 +36,39 @@ fn get_request(url: String) -> Request {
     Request { method: Method::Get, url, headers: vec![], body: None }
 }
 
-/// GETs every URL in one host batch; the bodies in order, or the first error. Deezer's own
-/// JSON errors are left to `api`.
+/// Past the host's HTTP cache, both ways (no lookup, no store).
+fn uncached(mut req: Request) -> Request {
+    req.headers.push(("cache-control".into(), "no-cache".into()));
+    req
+}
+
+/// Sends every request in one host batch; the bodies in order, or the first error. Deezer's
+/// own JSON errors are left to `api`, except its quota and "busy" ones: they come as HTTP 200,
+/// which the host caches for a day, so each such request is sent once more past the cache.
+fn send_all(reqs: Vec<Request>) -> Result<Vec<Vec<u8>>, Error> {
+    let send = |reqs: &[Request]| -> Result<Vec<Vec<u8>>, Error> {
+        host_http::send_batch(reqs)
+            .into_iter()
+            .map(|r| {
+                let resp = r.map_err(from_http_error)?;
+                status_error(resp.status).map_or(Ok(resp.body), Err)
+            })
+            .collect()
+    };
+    let mut bodies = send(&reqs)?;
+    let limited: Vec<usize> = (0..bodies.len()).filter(|&i| matches!(api::deezer_error(&bodies[i]), Some(Error::RateLimited))).collect();
+    if !limited.is_empty() {
+        let retry: Vec<Request> = limited.iter().map(|&i| uncached(reqs[i].clone())).collect();
+        for (i, body) in limited.into_iter().zip(send(&retry)?) {
+            bodies[i] = body;
+        }
+    }
+    Ok(bodies)
+}
+
+/// GETs every URL in one host batch (see `send_all`).
 fn get_all(urls: Vec<String>) -> Result<Vec<Vec<u8>>, Error> {
-    let reqs: Vec<Request> = urls.into_iter().map(get_request).collect();
-    host_http::send_batch(&reqs)
-        .into_iter()
-        .map(|r| {
-            let resp = r.map_err(from_http_error)?;
-            status_error(resp.status).map_or(Ok(resp.body), Err)
-        })
-        .collect()
+    send_all(urls.into_iter().map(get_request).collect())
 }
 
 fn get(url: String) -> Result<Vec<u8>, Error> {
@@ -219,7 +241,9 @@ impl radio::Guest for Deezer {
             }
         };
         let artist = track.artists.first().and_then(|a| a.id.clone()).ok_or(Error::NotFound)?;
-        let (mut tracks, _) = api::parse_tracks(&get(format!("{API}/artist/{artist}/radio?limit={limit}"))?)?;
+        // A different radio on every call: never from the host's cache.
+        let radio = uncached(get_request(format!("{API}/artist/{artist}/radio?limit={limit}")));
+        let (mut tracks, _) = api::parse_tracks(&send_all(vec![radio])?.remove(0))?;
         tracks.truncate(limit as usize);
         Ok(tracks)
     }

@@ -20,7 +20,7 @@ async fn manifest_and_exports_match() {
     assert_eq!(plugin.id(), "itunes");
     assert_eq!(plugin.capabilities(), [Capability::Search, Capability::Entity]);
     let m = plugin.manifest();
-    assert_eq!(m.domains, ["itunes.apple.com", "music.apple.com", "*.mzstatic.com"]);
+    assert_eq!(m.domains, ["itunes.apple.com", "*.mzstatic.com"]);
     let rl = m.rate_limit.unwrap();
     assert_eq!((rl.requests, rl.per_seconds), (20, 60));
     assert!(!m.descriptive_user_agent);
@@ -112,6 +112,7 @@ async fn track_entity_and_not_found() {
 #[tokio::test]
 async fn links_need_no_request() {
     let (host, plugin, _) = load("itunes", "empty");
+    // Parsed locally: `music.apple.com` is not even in the manifest's domains.
     let album = host.parse_link(&plugin, "https://music.apple.com/fr/album/random-access-memories/617154241").await.unwrap();
     assert_eq!(dbg(album), dbg(Some(target(EntityKind::Album, "617154241"))));
     let track = host.parse_link(&plugin, "https://music.apple.com/fr/album/instant-crush/617154241?i=617154362&uo=4").await.unwrap();

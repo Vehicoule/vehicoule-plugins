@@ -25,13 +25,9 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
     is_id(id).then(|| EntityRef { kind, id: id.to_string() })
 }
 
-/// `link.deezer.com/s/…` or `deezer.page.link/…`: only the redirect tells what it names.
+/// `link.deezer.com/s/…`: only the redirect tells what it names.
 pub fn is_short_link(url: &str) -> bool {
-    split(url).is_some_and(|(host, path)| match host.as_str() {
-        "link.deezer.com" => path.strip_prefix("s/").is_some_and(|code| !code.is_empty()),
-        "deezer.page.link" => !path.is_empty(),
-        _ => false,
-    })
+    split(url).is_some_and(|(host, path)| host == "link.deezer.com" && path.strip_prefix("s/").is_some_and(|code| !code.is_empty()))
 }
 
 /// Deezer ids are decimal: anything else never reaches a URL.
@@ -80,7 +76,8 @@ mod tests {
     #[test]
     fn short_links_are_recognised() {
         assert!(is_short_link("https://link.deezer.com/s/34bMMRXCn45BPl52sk6ml"));
-        assert!(is_short_link("https://deezer.page.link/ABCdef123"));
+        // Firebase Dynamic Links are gone: no longer followed.
+        assert!(!is_short_link("https://deezer.page.link/ABCdef123"));
         assert!(is_short_link("HTTPS://Link.Deezer.com/s/34bMMRXCn45BPl52sk6ml"));
         assert!(!is_short_link("https://link.deezer.com/s/"));
         assert!(!is_short_link("https://link.deezer.com.evil.com/s/abc"));

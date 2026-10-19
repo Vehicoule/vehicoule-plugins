@@ -31,7 +31,7 @@ async fn manifest_and_exports_match() {
     assert_eq!(plugin.id(), "deezer");
     assert_eq!(plugin.capabilities(), [Capability::Search, Capability::Entity, Capability::Radio]);
     let m = plugin.manifest();
-    assert_eq!(m.domains, ["api.deezer.com", "www.deezer.com", "link.deezer.com", "deezer.page.link", "*.dzcdn.net"]);
+    assert_eq!(m.domains, ["api.deezer.com", "www.deezer.com", "link.deezer.com", "*.dzcdn.net"]);
     let rl = m.rate_limit.unwrap();
     assert_eq!((rl.requests, rl.per_seconds), (45, 5));
     assert!(!m.descriptive_user_agent);
@@ -130,12 +130,17 @@ async fn empty_search_is_empty_not_error() {
 
 #[tokio::test]
 async fn radio_from_seed_track() {
-    let (host, plugin, _) = load("deezer", "radio");
+    let (host, plugin, reports) = load("deezer", "radio");
+    let http_calls = || reports.lock().unwrap().last().unwrap().http_calls;
     // `track/3135556` → artist 27 → `artist/27/radio`.
     let radio = host.radio(&plugin, seed(Some("3135556")), "FR", 5).await.unwrap();
     let ids: Vec<&str> = radio.iter().map(|t| t.id.as_str()).collect();
     assert_eq!(ids, ["3155979", "559283992", "3167848", "135373118", "67238737"]);
     assert_eq!(radio[0].artwork[0].width, Some(1000));
+    assert_eq!(http_calls(), 2);
+    // Again: the track comes from the host's cache, the radio (`no-cache`) from the network.
+    host.radio(&plugin, seed(Some("3135556")), "FR", 5).await.unwrap();
+    assert_eq!(http_calls(), 1);
     // Without an id, the first search match is the seed.
     let searched = host.radio(&plugin, seed(None), "FR", 5).await.unwrap();
     assert_eq!(dbg(searched), dbg(&radio));
@@ -145,4 +150,21 @@ async fn radio_from_seed_track() {
     // Nothing to search for: `not-found` without a request (none is recorded for it).
     let blank = TrackQuery { title: String::new(), artists: vec![], ..seed(None) };
     assert_eq!(host.radio(&plugin, blank, "FR", 5).await.unwrap_err(), CallError::NotFound);
+}
+
+/// Deezer's quota (code 4) and "busy" (700) errors come as HTTP 200, which the host caches for
+/// a day: each is asked once more past the cache before `rate-limited`.
+#[tokio::test]
+async fn quota_errors_retry_past_the_cache() {
+    let (host, plugin, reports) = load("deezer", "quota");
+    let http_calls = || reports.lock().unwrap().last().unwrap().http_calls;
+    let quota = target(EntityKind::Track, "1");
+    let busy = target(EntityKind::Track, "2");
+    assert_eq!(host.fetch_entity(&plugin, quota.clone(), "FR", None).await.unwrap_err(), CallError::RateLimited);
+    assert_eq!(http_calls(), 2);
+    // The first answer is now cached; the retry still reaches the network.
+    assert_eq!(host.fetch_entity(&plugin, quota, "FR", None).await.unwrap_err(), CallError::RateLimited);
+    assert_eq!(http_calls(), 1);
+    assert_eq!(host.fetch_entity(&plugin, busy, "FR", None).await.unwrap_err(), CallError::RateLimited);
+    assert_eq!(http_calls(), 2);
 }

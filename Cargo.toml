@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["tests", "plugins/deezer", "plugins/itunes", "plugins/lrclib"]
-# Plugins only make sense for wasm32-wasip2; `tests` builds them.
-default-members = ["tests"]
+# Plugins ship as wasm32-wasip2 (`tests` builds them so); natively they build too, so a plain
+# `cargo test` also runs their unit tests.
 
 [workspace.package]
 edition = "2024"

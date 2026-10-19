@@ -70,6 +70,10 @@ fn published_feed_verifies() {
     assert_eq!(feed.name, "official");
     assert_eq!(feed.sequence, 1);
     assert!(feed.plugins.is_empty());
+    // Only what gets served is left in the output dir; the sequence is to be committed.
+    assert!(!out_dir.join("payload.json").exists(), "the unsigned payload must not be published");
+    let stderr = String::from_utf8_lossy(&publish.stderr);
+    assert!(stderr.contains("commit feed/sequence"), "{stderr}");
 }
 
 /// If `vehicoule-feed sign` fails (here: `VEHICOULE_FEED_KEY` points at a key file that
@@ -91,4 +95,5 @@ fn failed_sign_keeps_sequence() {
     let sequence = std::fs::read_to_string(root.path().join("feed/sequence")).unwrap();
     assert_eq!(sequence.trim(), "0", "feed/sequence must stay unchanged when signing fails");
     assert!(!out_dir.join("feed.json").exists(), "feed.json must not exist when signing fails");
+    assert!(!out_dir.join("feed.json.tmp").exists() && !out_dir.join("payload.json").exists());
 }

@@ -7,7 +7,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use plugin_host::{Host, HostConfig, Limits, MemoryStorage, NetPolicy, Plugin};
+use plugin_host::{CallReport, Host, HostConfig, HostEvent, Limits, MemoryStorage, NetPolicy, Plugin};
+
+/// Every call's report, in order (`http_calls` counts network requests, not cache hits).
+pub type Reports = Arc<Mutex<Vec<CallReport>>>;
 
 fn workspace() -> &'static Path {
     Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/.."))
@@ -36,24 +39,30 @@ fn build(plugin: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
 }
 
-/// Loads `plugins/<plugin>`, its HTTP replayed from `tests/fixtures/<plugin>/<fixtures>`.
-pub fn load(plugin: &str, fixtures: &str) -> (Host, Plugin, Arc<MemoryStorage>) {
+/// Loads `plugins/<plugin>`, its HTTP replayed from `tests/fixtures/<plugin>/<fixtures>`, with
+/// the host's HTTP cache in memory.
+pub fn load(plugin: &str, fixtures: &str) -> (Host, Plugin, Reports) {
     let wasm = build(plugin);
     let manifest_path = workspace().join("plugins").join(plugin).join("manifest.json");
     let manifest = std::fs::read(&manifest_path).unwrap_or_else(|e| panic!("reading {}: {e}", manifest_path.display()));
     let fixtures_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures").join(plugin).join(fixtures);
 
-    let storage = Arc::new(MemoryStorage::default());
+    let reports = Reports::default();
+    let sink = reports.clone();
     let cache_dir = std::env::temp_dir().join(format!("vehicoule-plugins-tests-{}", std::process::id()));
     let host = Host::new(HostConfig {
         cache_dir,
-        storage: storage.clone(),
-        events: Arc::new(|_| {}),
+        storage: Arc::new(MemoryStorage::default()),
+        events: Arc::new(move |e| {
+            if let HostEvent::Call(r) = e {
+                sink.lock().unwrap().push(r);
+            }
+        }),
         limits: Limits::default(),
         app_version: "0.0.0-test".into(),
         net: NetPolicy::replay(&fixtures_dir),
     })
     .unwrap();
     let plugin = host.load(&manifest, &wasm).unwrap();
-    (host, plugin, storage)
+    (host, plugin, reports)
 }

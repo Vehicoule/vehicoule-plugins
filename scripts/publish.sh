@@ -32,6 +32,9 @@ fi
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out="$1"
 mkdir -p "$out"
+# The unsigned payload (and a half-written feed) never land in the output dir.
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp" "$out/feed.json.tmp"' EXIT
 
 feed_name="official"
 
@@ -67,7 +70,7 @@ done
 sequence_file="$root/feed/sequence"
 sequence=$(( $(cat "$sequence_file") + 1 ))
 
-payload="$out/payload.json"
+payload="$tmp/payload.json"
 jq -n --arg name "$feed_name" --argjson sequence "$sequence" --argjson plugins "$entries" \
     '{name: $name, sequence: $sequence, plugins: $plugins}' >"$payload"
 
@@ -75,3 +78,4 @@ vehicoule-feed sign "$payload" "$VEHICOULE_FEED_KEY" >"$out/feed.json.tmp"
 mv "$out/feed.json.tmp" "$out/feed.json"
 echo "$sequence" > "$sequence_file"
 echo "published sequence $sequence -> $out/feed.json" >&2
+echo "reminder: commit feed/sequence (git -C \"$root\" commit -s -m \"feed: sequence $sequence\" -- feed/sequence)" >&2

@@ -3,7 +3,7 @@
   "name": "Deezer",
   "version": "0.1.0",
   "contract": "1.0",
-  "domains": ["api.deezer.com", "www.deezer.com", "link.deezer.com", "deezer.page.link", "*.dzcdn.net"],
+  "domains": ["api.deezer.com", "www.deezer.com", "link.deezer.com", "*.dzcdn.net"],
   "rate_limit": { "requests": 45, "per_seconds": 5 },
   "descriptive_user_agent": false
 }

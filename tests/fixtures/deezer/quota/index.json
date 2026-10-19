@@ -1,0 +1,16 @@
+[
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/track/1",
+  "status": 200,
+  "headers": [["content-type", "application/json; charset=utf-8"]],
+  "body_file": "quota.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/track/2",
+  "status": 200,
+  "headers": [["content-type", "application/json; charset=utf-8"]],
+  "body_file": "busy.json"
+ }
+]

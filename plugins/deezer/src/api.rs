@@ -8,7 +8,8 @@ use vehicoule_sdk::types::{Album, AlbumRef, Artist, ArtistRef, Error, Image, Pla
 /// A page of results and the cursor of the next one: Deezer's `index`, in decimal.
 pub type Page<T> = (Vec<T>, Option<String>);
 
-/// `{"error":{"code":4}}` (quota) → `rate-limited`, 800 (no data) → `not-found`.
+/// `{"error":{"code":4}}` (quota) and 700 (service busy) → `rate-limited`, 800 (no data) →
+/// `not-found`.
 pub fn deezer_error(body: &[u8]) -> Option<Error> {
     #[derive(Deserialize)]
     struct Body {
@@ -21,7 +22,7 @@ pub fn deezer_error(body: &[u8]) -> Option<Error> {
     }
     let error = serde_json::from_slice::<Body>(body).ok()?.error?;
     Some(match error.code {
-        4 => Error::RateLimited,
+        4 | 700 => Error::RateLimited,
         800 => Error::NotFound,
         code => Error::Internal(format!("deezer {code}")),
     })
@@ -281,6 +282,8 @@ mod tests {
         assert_eq!(dbg(deezer_error(not_found)), dbg(Some(Error::NotFound)));
         let quota = br#"{"error":{"type":"Exception","message":"Quota limit exceeded","code":4}}"#;
         assert_eq!(dbg(deezer_error(quota)), dbg(Some(Error::RateLimited)));
+        let busy = br#"{"error":{"type":"Exception","message":"Service busy","code":700}}"#;
+        assert_eq!(dbg(deezer_error(busy)), dbg(Some(Error::RateLimited)));
         let other = br#"{"error":{"type":"ParameterException","message":"Wrong parameter","code":500}}"#;
         assert_eq!(dbg(deezer_error(other)), dbg(Some(Error::Internal("deezer 500".into()))));
         assert!(deezer_error(fixture!("search/search_track.json")).is_none());

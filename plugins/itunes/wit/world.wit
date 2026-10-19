@@ -1,0 +1,7 @@
+package vehicoule:itunes;
+
+world itunes {
+    include vehicoule:host/imports@1.0.0;
+    export vehicoule:music/search@1.0.0;
+    export vehicoule:music/entity@1.0.0;
+}

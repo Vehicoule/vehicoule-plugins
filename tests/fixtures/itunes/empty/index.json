@@ -1,0 +1,9 @@
+[
+ {
+  "method": "GET",
+  "url": "https://itunes.apple.com/search?term=zzqxjvkwplmnbv&entity=song&country=FR&limit=5&offset=0",
+  "status": 200,
+  "headers": [["content-type", "text/javascript; charset=utf-8"]],
+  "body_file": "search_song.json"
+ }
+]

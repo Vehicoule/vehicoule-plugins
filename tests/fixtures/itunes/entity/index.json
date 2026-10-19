@@ -1,0 +1,30 @@
+[
+ {
+  "method": "GET",
+  "url": "https://itunes.apple.com/lookup?id=617154241&entity=song&country=FR&limit=200",
+  "status": 200,
+  "headers": [["content-type", "text/javascript; charset=utf-8"]],
+  "body_file": "album_tracks.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://itunes.apple.com/lookup?id=5468295&entity=album&country=FR&limit=200",
+  "status": 200,
+  "headers": [["content-type", "text/javascript; charset=utf-8"]],
+  "body_file": "artist_albums.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://itunes.apple.com/lookup?id=617154362&entity=song&country=FR",
+  "status": 200,
+  "headers": [["content-type", "text/javascript; charset=utf-8"]],
+  "body_file": "track.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://itunes.apple.com/lookup?id=0&entity=song&country=FR",
+  "status": 200,
+  "headers": [["content-type", "text/javascript; charset=utf-8"]],
+  "body_file": "track_unknown.json"
+ }
+]

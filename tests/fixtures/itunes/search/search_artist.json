@@ -1,0 +1,11 @@
+
+
+
+{
+ "resultCount":2,
+ "results": [
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Daft Punk", "artistLinkUrl":"https://music.apple.com/fr/artist/daft-punk/5468295?uo=4", "artistId":5468295, "amgArtistId":168791, "primaryGenreName":"Dance", "primaryGenreId":17}, 
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Daft Punk is Dead", "artistLinkUrl":"https://music.apple.com/fr/artist/daft-punk-is-dead/1566602984?uo=4", "artistId":1566602984, "primaryGenreName":"House", "primaryGenreId":1048}]
+}
+
+

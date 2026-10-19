@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-# Plugin crates (plugins/itunes, plugins/lrclib) are added as tasks 5-6 land.
-members = ["tests", "plugins/deezer"]
+# Plugin crates (plugins/lrclib) are added as task 6 lands.
+members = ["tests", "plugins/deezer", "plugins/itunes"]
 # Plugins only make sense for wasm32-wasip2; `tests` builds them.
 default-members = ["tests"]
 

@@ -1,0 +1,11 @@
+
+
+
+{
+ "resultCount":2,
+ "results": [
+{"wrapperType":"collection", "collectionType":"Album", "artistId":5468295, "collectionId":617154241, "amgArtistId":168791, "artistName":"Daft Punk", "collectionName":"Random Access Memories", "collectionCensoredName":"Random Access Memories", "artistViewUrl":"https://music.apple.com/fr/artist/daft-punk/5468295?uo=4", "collectionViewUrl":"https://music.apple.com/fr/album/random-access-memories/617154241?uo=4", "artworkUrl60":"https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e8/43/5f/e8435ffa-b6b9-b171-40ab-4ff3959ab661/886443919266.jpg/60x60bb.jpg", "artworkUrl100":"https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e8/43/5f/e8435ffa-b6b9-b171-40ab-4ff3959ab661/886443919266.jpg/100x100bb.jpg", "collectionPrice":10.99, "collectionExplicitness":"notExplicit", "trackCount":14, "copyright":"℗ 2013 Daft Life Limited under exclusive license to Columbia Records, a Division of Sony Music Entertainment", "country":"FRA", "currency":"EUR", "releaseDate":"2013-05-17T07:00:00Z", "primaryGenreName":"Pop"}, 
+{"wrapperType":"collection", "collectionType":"Album", "artistId":5468295, "collectionId":697194953, "amgArtistId":168791, "artistName":"Daft Punk", "collectionName":"Discovery", "collectionCensoredName":"Discovery", "artistViewUrl":"https://music.apple.com/fr/artist/daft-punk/5468295?uo=4", "collectionViewUrl":"https://music.apple.com/fr/album/discovery/697194953?uo=4", "artworkUrl60":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/fd/4a/77/fd4a77db-0ebc-d043-41a2-f32fa1bb0fb4/dj.qrikkdwj.jpg/60x60bb.jpg", "artworkUrl100":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/fd/4a/77/fd4a77db-0ebc-d043-41a2-f32fa1bb0fb4/dj.qrikkdwj.jpg/100x100bb.jpg", "collectionPrice":6.99, "collectionExplicitness":"notExplicit", "trackCount":14, "copyright":"℗ 2001 Daft Life Limited", "country":"FRA", "currency":"EUR", "releaseDate":"2001-03-12T08:00:00Z", "primaryGenreName":"Dance"}]
+}
+
+

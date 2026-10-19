@@ -1,0 +1,9 @@
+[
+ {
+  "method": "GET",
+  "url": "https://lrclib.net/api/get?track_name=Rebel+Rouser&artist_name=Duane+Eddy&album_name=Rebel+Rouser&duration=142",
+  "status": 200,
+  "headers": [["content-type", "application/json"]],
+  "body_file": "get.json"
+ }
+]

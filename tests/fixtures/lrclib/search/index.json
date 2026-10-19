@@ -1,0 +1,16 @@
+[
+ {
+  "method": "GET",
+  "url": "https://lrclib.net/api/get?track_name=Yesterday&artist_name=The+Beatles&album_name=WrongAlbumName&duration=126",
+  "status": 404,
+  "headers": [["content-type", "application/json"]],
+  "body_file": "get_404.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://lrclib.net/api/search?track_name=Yesterday&artist_name=The+Beatles",
+  "status": 200,
+  "headers": [["content-type", "application/json"]],
+  "body_file": "search.json"
+ }
+]

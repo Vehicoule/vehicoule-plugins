@@ -1,0 +1,9 @@
+[
+ {
+  "method": "GET",
+  "url": "https://lrclib.net/api/get?track_name=Yesterday&artist_name=The+Beatles&album_name=Help%21&duration=126",
+  "status": 200,
+  "headers": [["content-type", "application/json"]],
+  "body_file": "get.json"
+ }
+]

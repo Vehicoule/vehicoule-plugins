@@ -14,3 +14,4 @@ vehicoule-sdk = { git = "file:///Users/btw/Documents/repo/Vehicoule", tag = "con
 base64 = "0.22"
 serde_json = "1"
 tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,8 @@
+package vehicoule:deezer;
+
+world deezer {
+    include vehicoule:host/imports@1.0.0;
+    export vehicoule:music/search@1.0.0;
+    export vehicoule:music/entity@1.0.0;
+    export vehicoule:music/radio@1.0.0;
+}

@@ -1,0 +1,322 @@
+[
+ {
+  "method": "GET",
+  "url": "https://link.deezer.com/s/34bMMRXCn45BPl52sk6ml",
+  "status": 301,
+  "headers": [
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "location",
+    "https://link.deezer.com/?awf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&dest=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&gwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&iwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1"
+   ],
+   [
+    "x-version",
+    "development"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:54 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "playlist.html"
+ },
+ {
+  "method": "GET",
+  "url": "https://link.deezer.com/?awf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&dest=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&gwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1&iwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F15565783443%3Fhost%3D6890411823%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-15565783443%26deferredFl%3D1%26universal_link%3D1",
+  "status": 301,
+  "headers": [
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "location",
+    "https://www.deezer.com/playlist/15565783443?host=6890411823&utm_campaign=clipboard-generic&utm_source=user_sharing&utm_content=playlist-15565783443&deferredFl=1&universal_link=1"
+   ],
+   [
+    "x-version",
+    "development"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:55 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "playlist_1.html"
+ },
+ {
+  "method": "GET",
+  "url": "https://www.deezer.com/playlist/15565783443?host=6890411823&utm_campaign=clipboard-generic&utm_source=user_sharing&utm_content=playlist-15565783443&deferredFl=1&universal_link=1",
+  "status": 301,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "expires",
+    "Thu, 19 Nov 1981 08:52:00 GMT"
+   ],
+   [
+    "cache-control",
+    "no-store, no-cache, must-revalidate"
+   ],
+   [
+    "pragma",
+    "no-cache"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-frame-options",
+    "SAMEORIGIN"
+   ],
+   [
+    "link",
+    "<https://www.deezer.com/en/playlist/15565783443>; rel=\"canonical\""
+   ],
+   [
+    "location",
+    "https://www.deezer.com/fr/playlist/15565783443?host=6890411823&utm_campaign=clipboard-generic&utm_source=user_sharing&utm_content=playlist-15565783443&deferredFl=1&universal_link=1"
+   ],
+   [
+    "x-host",
+    "dzr-web-131"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:55 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "playlist_2.html"
+ },
+ {
+  "method": "GET",
+  "url": "https://www.deezer.com/fr/playlist/15565783443?host=6890411823&utm_campaign=clipboard-generic&utm_source=user_sharing&utm_content=playlist-15565783443&deferredFl=1&universal_link=1",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "expires",
+    "Thu, 19 Nov 1981 08:52:00 GMT"
+   ],
+   [
+    "cache-control",
+    "no-store, no-cache, must-revalidate"
+   ],
+   [
+    "pragma",
+    "no-cache"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-frame-options",
+    "SAMEORIGIN"
+   ],
+   [
+    "content-security-policy-report-only",
+    "upgrade-insecure-requests ; report-uri /csp-report"
+   ],
+   [
+    "content-security-policy-report-only",
+    "block-all-mixed-content ; report-uri /csp-report"
+   ],
+   [
+    "tdm-reservation",
+    "1"
+   ],
+   [
+    "access-control-allow-origin",
+    "https://twitter.com"
+   ],
+   [
+    "link",
+    "<https://cdn-files.dzcdn.net/cache/js/runtime.c362ae3deecc51d6e2a4.js>; as=\"script\"; rel=\"preload\"; nopush, <https://cdn-files.dzcdn.net/cache/js/legacy.cc6d6b74834c9119c1d3.js>; as=\"script\"; rel=\"preload\"; nopush, <https://cdn-files.dzcdn.net/cache/js/app-web.3247c6fb62dcfe0745fe.js>; as=\"script\"; rel=\"preload\"; nopush, <https://cdn-files.dzcdn.net/cache/css/sass_c/app-web.d86c6691bf72624aeeb7.css>; as=\"style\"; rel=\"preload\"; nopush"
+   ],
+   [
+    "x-host",
+    "dzr-web-06"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:55 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "playlist_3.html"
+ },
+ {
+  "method": "GET",
+  "url": "https://link.deezer.com/s/31nhZMumBaLkQg77gDv3x",
+  "status": 302,
+  "headers": [
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "location",
+    "https://www.deezer.com/deezer-links-404"
+   ],
+   [
+    "x-version",
+    "development"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:55 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "dead.html"
+ },
+ {
+  "method": "GET",
+  "url": "https://www.deezer.com/deezer-links-404",
+  "status": 404,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "expires",
+    "Thu, 19 Nov 1981 08:52:00 GMT"
+   ],
+   [
+    "cache-control",
+    "no-store, no-cache, must-revalidate"
+   ],
+   [
+    "pragma",
+    "no-cache"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-frame-options",
+    "SAMEORIGIN"
+   ],
+   [
+    "x-host",
+    "dzr-web-04"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "x-akamai-transformed",
+    "0 - 0 -"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:55 GMT"
+   ],
+   [
+    "content-length",
+    "8568"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "dead_1.html"
+ }
+]

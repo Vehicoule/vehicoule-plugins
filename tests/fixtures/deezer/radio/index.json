@@ -1,0 +1,194 @@
+[
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/track/3135556",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-185"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:58 GMT"
+   ],
+   [
+    "content-length",
+    "4900"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "track.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/artist/27/radio?limit=5",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-130"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:58 GMT"
+   ],
+   [
+    "content-length",
+    "10025"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "artist_radio.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/search/track?q=Daft+Punk+Harder+Better+Faster+Stronger&limit=1&index=0",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-83"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:58 GMT"
+   ],
+   [
+    "content-length",
+    "2251"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "search_track.json"
+ }
+]

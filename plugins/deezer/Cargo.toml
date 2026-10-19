@@ -1,0 +1,15 @@
+[package]
+name = "deezer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+vehicoule-sdk = { git = "file:///Users/btw/Documents/repo/Vehicoule", tag = "contract-v1.0.0" }
+wit-bindgen = "0.63"

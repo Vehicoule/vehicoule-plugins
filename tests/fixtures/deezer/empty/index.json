@@ -1,0 +1,66 @@
+[
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/search/track?q=zzqxjvkwplmnbv&limit=5&index=0",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-152"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-length",
+    "21"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Mon, 19 Oct 2026 16:57:54 GMT"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "search_track.json"
+ }
+]

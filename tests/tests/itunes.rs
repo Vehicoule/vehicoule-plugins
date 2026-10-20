@@ -39,6 +39,33 @@ async fn search_every_kind() {
     assert_eq!(found.next.as_deref(), Some("2"));
 }
 
+/// iTunes ignores `offset`, so page two is the first `offset + limit` results minus the first
+/// `offset`: positions 2..4 of the same list, not page one again.
+#[tokio::test]
+async fn search_second_page_skips_the_first() {
+    let (host, plugin, _) = load("itunes", "search_page2");
+    let req = SearchRequest { query: "daft punk".into(), kinds: vec![], region: "FR".into(), limit: 2, cursor: Some("2".into()) };
+    let found = host.search(&plugin, req).await.unwrap();
+    let tracks: Vec<&str> = found.tracks.iter().map(|t| t.title.as_str()).collect();
+    let albums: Vec<&str> = found.albums.iter().map(|a| a.title.as_str()).collect();
+    let artists: Vec<&str> = found.artists.iter().map(|a| a.name.as_str()).collect();
+    assert_eq!(tracks, ["One More Time", "Veridis Quo"]);
+    assert_eq!(albums, ["Homework", "Human After All"]);
+    assert_eq!(artists, ["Daft Punk Experience", "Alonzo"]);
+    assert_eq!(found.next.as_deref(), Some("4"));
+}
+
+/// iTunes returns at most 200 results: the page that reaches the 200th has no next, even full.
+#[tokio::test]
+async fn search_stops_at_the_200_cap() {
+    let (host, plugin, _) = load("itunes", "search_cap");
+    let req = SearchRequest { query: "love".into(), kinds: vec![EntityKind::Track], region: "FR".into(), limit: 4, cursor: Some("196".into()) };
+    let found = host.search(&plugin, req).await.unwrap();
+    let titles: Vec<&str> = found.tracks.iter().map(|t| t.title.as_str()).collect();
+    assert_eq!(titles, ["(Your Love Keeps Lifting Me) Higher & Higher", "Crazy Little Thing Called Love", "Whole Lotta Love", "Crazy in Love (Remix)"]);
+    assert_eq!(found.next, None);
+}
+
 #[tokio::test]
 async fn empty_search_is_empty_not_error() {
     let (host, plugin, _) = load("itunes", "empty");
@@ -49,7 +76,7 @@ async fn empty_search_is_empty_not_error() {
 }
 
 /// The one failing test from the brief: a `lookup` by album id lists its tracks, ordered by
-/// track number then disc number (the album here is single-disc, so this also matches the
+/// disc number then track number (the album here is single-disc, so this also matches the
 /// API's own order).
 #[tokio::test]
 async fn album_entity_lists_tracks_in_order() {

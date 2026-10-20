@@ -1,0 +1,13 @@
+
+
+
+{
+ "resultCount":4,
+ "results": [
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Daft Punk", "artistLinkUrl":"https://music.apple.com/fr/artist/daft-punk/5468295?uo=4", "artistId":5468295, "amgArtistId":168791, "primaryGenreName":"Dance", "primaryGenreId":17}, 
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Daft Punk is Dead", "artistLinkUrl":"https://music.apple.com/fr/artist/daft-punk-is-dead/1566602984?uo=4", "artistId":1566602984, "primaryGenreName":"House", "primaryGenreId":1048}, 
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Daft Punk Experience", "artistLinkUrl":"https://music.apple.com/fr/artist/daft-punk-experience/1633597459?uo=4", "artistId":1633597459, "primaryGenreName":"Électronique", "primaryGenreId":7}, 
+{"wrapperType":"artist", "artistType":"Artist", "artistName":"Alonzo", "artistLinkUrl":"https://music.apple.com/fr/artist/alonzo/532788825?uo=4", "artistId":532788825, "amgArtistId":1021871, "primaryGenreName":"Hip-hop/Rap", "primaryGenreId":18}]
+}
+
+

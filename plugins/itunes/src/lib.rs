@@ -26,6 +26,8 @@ const API: &str = "https://itunes.apple.com";
 /// iTunes' own cap for `lookup`: enough to get a whole album or an artist's discography in
 /// one request, since `lookup` has no `offset` to page through more.
 const LOOKUP_LIMIT: &str = "200";
+/// iTunes' cap on a search's `limit`: no result past the 200th can ever be reached.
+const SEARCH_CAP: u32 = 200;
 
 struct Itunes;
 
@@ -38,8 +40,8 @@ fn get(url: String) -> Result<Vec<u8>, Error> {
     }
 }
 
-fn search_url(term: &str, entity: &str, country: &str, limit: &str, offset: &str) -> String {
-    format!("{API}/search?{}", query(&[("term", term), ("entity", entity), ("country", country), ("limit", limit), ("offset", offset)]))
+fn search_url(term: &str, entity: &str, country: &str, limit: &str) -> String {
+    format!("{API}/search?{}", query(&[("term", term), ("entity", entity), ("country", country), ("limit", limit)]))
 }
 
 fn lookup_url(id: &str, entity: &str, country: &str, limit: Option<&str>) -> String {
@@ -63,8 +65,9 @@ fn offset(cursor: Option<&str>) -> Result<u32, Error> {
 
 impl search::Guest for Itunes {
     /// One request per kind requested (song/album/musicArtist), run together; iTunes has no
-    /// playlists. Every kind pages by the same `limit` from the same `offset`: iTunes' own
-    /// `resultCount` tells a full page (more may follow) from the last one.
+    /// playlists. iTunes ignores `offset`, so a page asks for the first `offset + limit`
+    /// results (up to `SEARCH_CAP`) and drops the first `offset`: a kind that came back full
+    /// below the cap means more may follow.
     fn search(req: search::SearchRequest) -> Result<search::SearchResults, Error> {
         use EntityKind::*;
         let kinds: Vec<EntityKind> =
@@ -80,10 +83,11 @@ impl search::Guest for Itunes {
             Playlist => unreachable!("filtered out above"),
         };
         let offset = offset(req.cursor.as_deref())?;
-        let (limit, offset_s) = (req.limit.to_string(), offset.to_string());
+        let end = offset.saturating_add(req.limit).min(SEARCH_CAP);
+        let limit = end.to_string();
         let reqs: Vec<Request> = kinds
             .iter()
-            .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit, &offset_s), headers: vec![], body: None })
+            .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit), headers: vec![], body: None })
             .collect();
         let bodies: Vec<Vec<u8>> = host_http::send_batch(&reqs)
             .into_iter()
@@ -95,13 +99,14 @@ impl search::Guest for Itunes {
         let mut full_page = false;
         for body in &bodies {
             let parts = api::parse_results(body)?;
-            out.tracks.extend(parts.tracks);
-            out.albums.extend(parts.albums);
-            out.artists.extend(parts.artists);
-            full_page |= parts.total == req.limit;
+            let skip = offset as usize;
+            out.tracks.extend(parts.tracks.into_iter().skip(skip));
+            out.albums.extend(parts.albums.into_iter().skip(skip));
+            out.artists.extend(parts.artists.into_iter().skip(skip));
+            full_page |= parts.total == end;
         }
-        if full_page {
-            out.next = Some(offset.saturating_add(req.limit).to_string());
+        if full_page && end < SEARCH_CAP {
+            out.next = Some(end.to_string());
         }
         Ok(out)
     }

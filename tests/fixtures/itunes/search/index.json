@@ -1,21 +1,21 @@
 [
  {
   "method": "GET",
-  "url": "https://itunes.apple.com/search?term=daft+punk&entity=song&country=FR&limit=2&offset=0",
+  "url": "https://itunes.apple.com/search?term=daft+punk&entity=song&country=FR&limit=2",
   "status": 200,
   "headers": [["content-type", "text/javascript; charset=utf-8"]],
   "body_file": "search_song.json"
  },
  {
   "method": "GET",
-  "url": "https://itunes.apple.com/search?term=daft+punk&entity=album&country=FR&limit=2&offset=0",
+  "url": "https://itunes.apple.com/search?term=daft+punk&entity=album&country=FR&limit=2",
   "status": 200,
   "headers": [["content-type", "text/javascript; charset=utf-8"]],
   "body_file": "search_album.json"
  },
  {
   "method": "GET",
-  "url": "https://itunes.apple.com/search?term=daft+punk&entity=musicArtist&country=FR&limit=2&offset=0",
+  "url": "https://itunes.apple.com/search?term=daft+punk&entity=musicArtist&country=FR&limit=2",
   "status": 200,
   "headers": [["content-type", "text/javascript; charset=utf-8"]],
   "body_file": "search_artist.json"

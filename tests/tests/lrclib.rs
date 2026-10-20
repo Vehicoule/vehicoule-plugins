@@ -45,6 +45,25 @@ async fn search_fallback_matches_duration() {
     assert_eq!(lyrics.synced[0].start_ms, 5_340);
 }
 
+/// Same search results queried at 128s: the first (125.03s) is 3s off, so the second (126.0s,
+/// synced from 5.06s) is the one picked.
+#[tokio::test]
+async fn search_fallback_skips_results_outside_duration() {
+    let (host, plugin, _) = load("lrclib", "search");
+    let track = query("Yesterday", "The Beatles", Some("WrongAlbumName"), Some(128_000));
+    let lyrics = host.lyrics(&plugin, track).await.unwrap();
+    assert_eq!(lyrics.synced[0].start_ms, 5_060);
+}
+
+/// Search results exist but none is within 2s of 200s: `not-found`.
+#[tokio::test]
+async fn search_fallback_without_duration_match_is_not_found() {
+    let (host, plugin, _) = load("lrclib", "search");
+    let track = query("Yesterday", "The Beatles", Some("WrongAlbumName"), Some(200_000));
+    let result = host.lyrics(&plugin, track).await;
+    assert_eq!(result.unwrap_err(), CallError::NotFound);
+}
+
 /// `instrumental: true` on the matched track (even though it fetched fine) is `not-found`, not
 /// empty lyrics.
 #[tokio::test]

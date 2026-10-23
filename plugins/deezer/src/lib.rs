@@ -9,13 +9,16 @@ wit_bindgen::generate!({
         "vehicoule:host/kv@1.0.0": vehicoule_sdk::kv,
         "vehicoule:host/clock@1.0.0": vehicoule_sdk::clock,
         "vehicoule:host/log@1.0.0": vehicoule_sdk::log,
-        "vehicoule:music/types@1.0.0": vehicoule_sdk::types,
+        "vehicoule:music/types@1.1.0": vehicoule_sdk::types,
     },
 });
 
 mod api;
 mod links;
 
+use api::CategoryId;
+
+use exports::vehicoule::music::browse::{self, Category, CategoryPage, Release};
 use exports::vehicoule::music::entity::{self, Entity, EntityPage};
 use exports::vehicoule::music::{radio, search};
 use vehicoule_sdk::host_http::{self, Method, Request};
@@ -246,6 +249,88 @@ impl radio::Guest for Deezer {
         let (mut tracks, _) = api::parse_tracks(&send_all(vec![radio])?.remove(0))?;
         tracks.truncate(limit as usize);
         Ok(tracks)
+    }
+}
+
+/// The featured cards' titles: Deezer's own names, not interface text.
+const TOP: &str = "Top 50";
+const SELECTION: &str = "Sélection";
+
+fn chart_url(genre: &str) -> String {
+    format!("{API}/chart/{genre}?limit=50")
+}
+
+/// Deezer's charts follow the caller's IP: the region is not sent. A chart fits one page.
+impl browse::Guest for Deezer {
+    /// The chart and the editors' selection, each with the cover of its first item, then the
+    /// genres.
+    fn categories(_region: String) -> Result<Vec<Category>, Error> {
+        let b = get_all(vec![
+            format!("{API}/genre"),
+            format!("{API}/chart/0/tracks?limit=1"),
+            format!("{API}/editorial/0/selection"),
+        ])?;
+        let top = api::parse_tracks(&b[1])?
+            .0
+            .into_iter()
+            .next()
+            .map(|t| t.artwork)
+            .unwrap_or_default();
+        let pick = api::parse_albums(&b[2])?
+            .0
+            .into_iter()
+            .next()
+            .map(|a| a.artwork)
+            .unwrap_or_default();
+        let featured = |id: &str, title: &str, artwork| Category {
+            id: id.into(),
+            title: title.into(),
+            artwork,
+            featured: true,
+        };
+        let mut out = vec![
+            featured("chart:0", TOP, top),
+            featured("selection:0", SELECTION, pick),
+        ];
+        out.extend(api::parse_genres(&b[0])?);
+        Ok(out)
+    }
+
+    fn fetch_category(
+        id: String,
+        _region: String,
+        _cursor: Option<String>,
+    ) -> Result<CategoryPage, Error> {
+        let (title, shelves) = match api::category_id(&id)? {
+            CategoryId::Chart(g) => (TOP.into(), api::parse_chart(&get(chart_url(g))?)?),
+            // The genre's name from the list `categories` fetched (likely in the host's cache).
+            CategoryId::Genre(g) => {
+                let b = get_all(vec![format!("{API}/genre"), chart_url(g)])?;
+                let genre = api::parse_genres(&b[0])?
+                    .into_iter()
+                    .find(|c| c.id == id)
+                    .ok_or(Error::NotFound)?;
+                (genre.title, api::parse_chart(&b[1])?)
+            }
+            CategoryId::Selection(g) => (
+                SELECTION.into(),
+                api::parse_selection(&get(format!("{API}/editorial/{g}/selection"))?)?,
+            ),
+        };
+        Ok(CategoryPage {
+            title,
+            shelves,
+            next: None,
+        })
+    }
+
+    fn releases(artist_id: String, _region: String) -> Result<Vec<Release>, Error> {
+        if !links::is_id(&artist_id) {
+            return Err(Error::NotFound);
+        }
+        api::parse_releases(&get(format!(
+            "{API}/artist/{artist_id}/albums?limit={ALBUMS_PAGE}"
+        ))?)
     }
 }
 

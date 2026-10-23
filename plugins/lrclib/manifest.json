@@ -2,7 +2,7 @@
   "id": "lrclib",
   "name": "LRCLIB",
   "version": "0.1.0",
-  "contract": "1.0",
+  "contract": "1.1",
   "domains": ["lrclib.net"],
   "rate_limit": null,
   "descriptive_user_agent": true

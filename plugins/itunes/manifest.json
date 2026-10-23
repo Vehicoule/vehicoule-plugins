@@ -2,7 +2,7 @@
   "id": "itunes",
   "name": "iTunes",
   "version": "0.1.0",
-  "contract": "1.0",
+  "contract": "1.1",
   "domains": ["itunes.apple.com", "*.mzstatic.com"],
   "rate_limit": { "requests": 20, "per_seconds": 60 },
   "descriptive_user_agent": false

@@ -2,5 +2,5 @@ package vehicoule:lrclib;
 
 world lrclib {
     include vehicoule:host/imports@1.0.0;
-    export vehicoule:music/lyrics@1.0.0;
+    export vehicoule:music/lyrics@1.1.0;
 }

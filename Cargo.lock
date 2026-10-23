@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "contract"
 version = "0.1.0"
-source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=plugin-host-v1.0.0#37da2afdd8db9f1665f9918b8f209a9437c44c6d"
+source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=plugin-host-v1.1.0#f3ec3dd0a3d6b108495cd81603aded34ca23efb2"
 dependencies = [
  "wasmtime",
 ]
@@ -1344,7 +1344,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 [[package]]
 name = "plugin-host"
 version = "0.1.0"
-source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=plugin-host-v1.0.0#37da2afdd8db9f1665f9918b8f209a9437c44c6d"
+source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=plugin-host-v1.1.0#f3ec3dd0a3d6b108495cd81603aded34ca23efb2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2216,7 +2216,7 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 [[package]]
 name = "vehicoule-sdk"
 version = "1.0.0"
-source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=contract-v1.0.0#ad518071f19e9c9ce0a01bbca64826a98d3ab8c3"
+source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=contract-v1.1.0#c2433019b9fc77690a62810b4c3b6dea26e6f76c"
 dependencies = [
  "form_urlencoded",
  "serde",

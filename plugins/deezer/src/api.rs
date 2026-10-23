@@ -5,6 +5,9 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use vehicoule_sdk::types::{Album, AlbumRef, Artist, ArtistRef, Error, Image, Playlist, Track};
 
+use crate::exports::vehicoule::music::browse::{Category, Release, Shelf};
+use crate::exports::vehicoule::music::entity::Entity;
+
 /// A page of results and the cursor of the next one: Deezer's `index`, in decimal.
 pub type Page<T> = (Vec<T>, Option<String>);
 
@@ -60,6 +63,134 @@ pub fn parse_playlist(body: &[u8]) -> Result<Playlist, Error> {
     parse(body).map(playlist)
 }
 
+/// A browse category id: `chart:<genre>`, `genre:<genre>` or `selection:<genre>`.
+#[derive(Debug)]
+pub enum CategoryId<'a> {
+    Chart(&'a str),
+    Genre(&'a str),
+    Selection(&'a str),
+}
+
+/// Anything else, or a genre that is not decimal, is `not-found` before any request.
+pub fn category_id(id: &str) -> Result<CategoryId<'_>, Error> {
+    match id.split_once(':') {
+        Some((kind, g)) if crate::links::is_id(g) => match kind {
+            "chart" => Ok(CategoryId::Chart(g)),
+            "genre" => Ok(CategoryId::Genre(g)),
+            "selection" => Ok(CategoryId::Selection(g)),
+            _ => Err(Error::NotFound),
+        },
+        _ => Err(Error::NotFound),
+    }
+}
+
+/// `/genre` as the browse grid, without "all" (id 0): that one is the featured chart.
+pub fn parse_genres(body: &[u8]) -> Result<Vec<Category>, Error> {
+    #[derive(Deserialize)]
+    struct DzGenre {
+        id: i64,
+        name: String,
+        picture_xl: Option<String>,
+        picture_medium: Option<String>,
+    }
+    let list: List = parse(body)?;
+    Ok(items(list.data, |g: DzGenre| g)
+        .filter(|g| g.id != 0)
+        .map(|g| Category {
+            id: format!("genre:{}", g.id),
+            title: g.name,
+            artwork: artwork(g.picture_xl, g.picture_medium),
+            featured: false,
+        })
+        .collect())
+}
+
+/// `/chart/<genre>` as shelves: tracks, albums, artists, playlists (podcasts are left out).
+pub fn parse_chart(body: &[u8]) -> Result<Vec<Shelf>, Error> {
+    #[derive(Deserialize)]
+    struct Chart {
+        #[serde(default)]
+        tracks: List,
+        #[serde(default)]
+        albums: List,
+        #[serde(default)]
+        artists: List,
+        #[serde(default)]
+        playlists: List,
+    }
+    let c: Chart = parse(body)?;
+    Ok(shelves([
+        (
+            "tracks",
+            items(c.tracks.data, track).map(Entity::Track).collect(),
+        ),
+        (
+            "albums",
+            items(c.albums.data, album).map(Entity::Album).collect(),
+        ),
+        (
+            "artists",
+            items(c.artists.data, artist).map(Entity::Artist).collect(),
+        ),
+        (
+            "playlists",
+            items(c.playlists.data, playlist)
+                .map(Entity::Playlist)
+                .collect(),
+        ),
+    ]))
+}
+
+/// `/editorial/<genre>/selection`: one shelf of albums.
+pub fn parse_selection(body: &[u8]) -> Result<Vec<Shelf>, Error> {
+    let (albums, _) = parse_albums(body)?;
+    Ok(shelves([(
+        "albums",
+        albums.into_iter().map(Entity::Album).collect(),
+    )]))
+}
+
+/// An artist's albums, newest first; those without a full `YYYY-MM-DD` date are dropped.
+pub fn parse_releases(body: &[u8]) -> Result<Vec<Release>, Error> {
+    let list: List = parse(body)?;
+    let mut releases: Vec<Release> = items(list.data, |a: DzAlbum| a)
+        .filter_map(|a| {
+            let date = a.release_date.clone().filter(|d| is_date(d))?;
+            Some(Release {
+                album: album(a),
+                date,
+            })
+        })
+        .collect();
+    releases.sort_by(|a, b| b.date.cmp(&a.date));
+    Ok(releases)
+}
+
+/// `YYYY-MM-DD`, year not zero (Deezer's `0000-00-00`).
+fn is_date(d: &str) -> bool {
+    d.len() == 10
+        && !d.starts_with("0000")
+        && d.bytes().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        })
+}
+
+/// Empty shelves are left out.
+fn shelves<const N: usize>(shelves: [(&str, Vec<Entity>); N]) -> Vec<Shelf> {
+    shelves
+        .into_iter()
+        .filter(|(_, items)| !items.is_empty())
+        .map(|(title, items)| Shelf {
+            title: title.into(),
+            items,
+        })
+        .collect()
+}
+
 fn parse<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     if let Some(e) = deezer_error(body) {
         return Err(e);
@@ -67,18 +198,29 @@ fn parse<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     serde_json::from_slice(body).map_err(|e| Error::Internal(e.to_string()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct List {
     data: Vec<serde_json::Value>,
     /// The URL of the next page, absent on the last one.
     next: Option<String>,
 }
 
-/// An item Deezer sends malformed (a null title…) is skipped, not the whole page.
 fn page<D: DeserializeOwned, T>(body: &[u8], map: fn(D) -> T) -> Result<Page<T>, Error> {
     let list: List = parse(body)?;
-    let items = list.data.into_iter().filter_map(|item| serde_json::from_value(item).ok()).map(map).collect();
-    Ok((items, list.next.as_deref().and_then(next_index)))
+    Ok((
+        items(list.data, map).collect(),
+        list.next.as_deref().and_then(next_index),
+    ))
+}
+
+/// An item Deezer sends malformed (a null title…) is skipped, not the whole list.
+fn items<D: DeserializeOwned, T>(
+    data: Vec<serde_json::Value>,
+    map: fn(D) -> T,
+) -> impl Iterator<Item = T> {
+    data.into_iter()
+        .filter_map(|item| serde_json::from_value(item).ok())
+        .map(map)
 }
 
 /// `…?limit=100&index=100` → `100`.
@@ -321,5 +463,148 @@ mod tests {
         let (artists, _) = parse_artists(body).unwrap();
         assert_eq!(dbg(&artists[0].artwork), dbg([Image { url: "https://e.dzcdn.net/m.jpg".into(), width: Some(250), height: Some(250) }]));
         assert!(artists[1].artwork.is_empty());
+    }
+
+    #[test]
+    fn genres_parse_without_all() {
+        let genres = parse_genres(fixture!("browse_genres/genre.json")).unwrap();
+        assert_eq!(genres.len(), 25);
+        assert!(
+            genres
+                .iter()
+                .all(|c| !c.featured && c.id != "genre:0" && c.id.starts_with("genre:")),
+            "{genres:?}"
+        );
+        let pop = &genres[0];
+        assert_eq!((pop.id.as_str(), pop.title.as_str()), ("genre:132", "Pop"));
+        let pic = "https://cdn-images.dzcdn.net/images/misc/db7a604d9e7634a67d45cfc86b48370a";
+        assert_eq!(
+            dbg(&pop.artwork),
+            dbg([
+                Image {
+                    url: format!("{pic}/1000x1000-000000-80-0-0.jpg"),
+                    width: Some(1000),
+                    height: Some(1000)
+                },
+                Image {
+                    url: format!("{pic}/250x250-000000-80-0-0.jpg"),
+                    width: Some(250),
+                    height: Some(250)
+                },
+            ])
+        );
+    }
+
+    fn shelf_sizes(shelves: &[Shelf]) -> Vec<(&str, usize)> {
+        shelves
+            .iter()
+            .map(|s| (s.title.as_str(), s.items.len()))
+            .collect()
+    }
+
+    #[test]
+    fn chart_parses_into_four_ordered_shelves() {
+        let shelves = parse_chart(fixture!("browse_chart/chart.json")).unwrap();
+        assert_eq!(
+            shelf_sizes(&shelves),
+            [
+                ("tracks", 50),
+                ("albums", 49),
+                ("artists", 50),
+                ("playlists", 50)
+            ]
+        );
+        let Entity::Track(t) = &shelves[0].items[0] else {
+            panic!("{:?}", shelves[0].items[0])
+        };
+        assert_eq!((t.id.as_str(), t.title.as_str()), ("4015341011", "Dai Dai"));
+        let Entity::Album(a) = &shelves[1].items[0] else {
+            panic!("{:?}", shelves[1].items[0])
+        };
+        assert_eq!(a.title, "Dopamine Chamber");
+        let Entity::Artist(ar) = &shelves[2].items[0] else {
+            panic!("{:?}", shelves[2].items[0])
+        };
+        assert_eq!(ar.name, "Jul");
+        let Entity::Playlist(p) = &shelves[3].items[0] else {
+            panic!("{:?}", shelves[3].items[0])
+        };
+        assert_eq!(
+            (p.title.as_str(), p.owner.as_deref()),
+            (
+                "Les titres du moment",
+                Some("Alexandre - Pop & Hits Editor")
+            )
+        );
+
+        // An empty or missing section is no shelf; podcasts are not music.
+        let body = br#"{"tracks":{"data":[]},"albums":{"data":[{"id":1,"title":"A"}]},"artists":{"data":[]},
+            "podcasts":{"data":[{"id":9,"title":"P"}]}}"#;
+        assert_eq!(shelf_sizes(&parse_chart(body).unwrap()), [("albums", 1)]);
+
+        let selection = parse_selection(fixture!("browse_selection/selection.json")).unwrap();
+        assert_eq!(shelf_sizes(&selection), [("albums", 10)]);
+        let Entity::Album(a) = &selection[0].items[0] else {
+            panic!("{:?}", selection[0].items[0])
+        };
+        assert_eq!(
+            (a.title.as_str(), a.artists[0].name.as_str()),
+            ("650", "Wyatt McCubbin")
+        );
+    }
+
+    #[test]
+    fn releases_sorted_newest_first_undated_dropped() {
+        let releases = parse_releases(fixture!("browse_releases/artist_albums.json")).unwrap();
+        assert_eq!(releases.len(), 39);
+        assert!(
+            releases.windows(2).all(|w| w[0].date >= w[1].date),
+            "{releases:?}"
+        );
+        assert_eq!(
+            (releases[0].date.as_str(), releases[0].album.title.as_str()),
+            ("2023-11-17", "Random Access Memories (Drumless Edition)")
+        );
+        assert_eq!(releases[38].date, "1997-01-16");
+
+        let body = br#"{"data":[{"id":1,"title":"Old","release_date":"2001-03-07"},{"id":2,"title":"Undated"},
+            {"id":3,"title":"Zero","release_date":"0000-00-00"},{"id":4,"title":"New","release_date":"2026-10-02"},
+            {"id":5,"title":"Odd","release_date":"2026"}]}"#;
+        let releases = parse_releases(body).unwrap();
+        let got: Vec<_> = releases
+            .iter()
+            .map(|r| (r.date.as_str(), r.album.title.as_str()))
+            .collect();
+        assert_eq!(got, [("2026-10-02", "New"), ("2001-03-07", "Old")]);
+    }
+
+    #[test]
+    fn unknown_category_id_is_not_found() {
+        assert_eq!(
+            dbg(category_id("chart:0")),
+            dbg(Ok::<_, Error>(CategoryId::Chart("0")))
+        );
+        assert_eq!(
+            dbg(category_id("genre:132")),
+            dbg(Ok::<_, Error>(CategoryId::Genre("132")))
+        );
+        assert_eq!(
+            dbg(category_id("selection:0")),
+            dbg(Ok::<_, Error>(CategoryId::Selection("0")))
+        );
+        for id in [
+            "foo:1",
+            "chart",
+            "chart:",
+            "genre:pop",
+            "chart:0/../user/1",
+            "",
+        ] {
+            assert_eq!(
+                dbg(category_id(id)),
+                dbg(Err::<(), _>(Error::NotFound)),
+                "{id}"
+            );
+        }
     }
 }

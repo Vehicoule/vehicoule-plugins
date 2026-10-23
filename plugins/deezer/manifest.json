@@ -1,8 +1,8 @@
 {
   "id": "deezer",
   "name": "Deezer",
-  "version": "0.1.0",
-  "contract": "1.0",
+  "version": "0.2.0",
+  "contract": "1.1",
   "domains": ["api.deezer.com", "www.deezer.com", "link.deezer.com", "*.dzcdn.net"],
   "rate_limit": { "requests": 45, "per_seconds": 5 },
   "descriptive_user_agent": false

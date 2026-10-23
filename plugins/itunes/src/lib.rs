@@ -10,7 +10,7 @@ wit_bindgen::generate!({
         "vehicoule:host/kv@1.0.0": vehicoule_sdk::kv,
         "vehicoule:host/clock@1.0.0": vehicoule_sdk::clock,
         "vehicoule:host/log@1.0.0": vehicoule_sdk::log,
-        "vehicoule:music/types@1.0.0": vehicoule_sdk::types,
+        "vehicoule:music/types@1.1.0": vehicoule_sdk::types,
     },
 });
 

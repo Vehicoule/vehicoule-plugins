@@ -1,0 +1,194 @@
+[
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/genre",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-179"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Fri, 23 Oct 2026 18:34:19 GMT"
+   ],
+   [
+    "content-length",
+    "15297"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "genre.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/chart/0/tracks?limit=1",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-147"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Fri, 23 Oct 2026 18:34:19 GMT"
+   ],
+   [
+    "content-length",
+    "2086"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "chart_tracks.json"
+ },
+ {
+  "method": "GET",
+  "url": "https://api.deezer.com/editorial/0/selection",
+  "status": 200,
+  "headers": [
+   [
+    "server",
+    "Apache"
+   ],
+   [
+    "access-control-allow-headers",
+    "X-Requested-With, Content-Type, Authorization, Origin, Accept, Accept-Encoding"
+   ],
+   [
+    "access-control-allow-methods",
+    "POST, GET, OPTIONS, DELETE, PUT"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-expose-headers",
+    "Location"
+   ],
+   [
+    "access-control-max-age",
+    "86400"
+   ],
+   [
+    "p3p",
+    "policyref=\"/w3c/p3p.xml\" CP=\"IDC DSP COR CURa ADMa OUR IND PHY ONL COM STA\""
+   ],
+   [
+    "x-host",
+    "dzr-web-142"
+   ],
+   [
+    "x-content-type-options",
+    "nosniff"
+   ],
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains"
+   ],
+   [
+    "date",
+    "Fri, 23 Oct 2026 18:34:19 GMT"
+   ],
+   [
+    "content-length",
+    "9579"
+   ],
+   [
+    "x-org",
+    "FR"
+   ]
+  ],
+  "body_file": "selection.json"
+ }
+]

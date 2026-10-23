@@ -29,12 +29,21 @@ fn seed(id: Option<&str>) -> TrackQuery {
 async fn manifest_and_exports_match() {
     let (_host, plugin, _) = load("deezer", "empty");
     assert_eq!(plugin.id(), "deezer");
-    assert_eq!(plugin.capabilities(), [Capability::Search, Capability::Entity, Capability::Radio]);
+    assert_eq!(
+        plugin.capabilities(),
+        [
+            Capability::Search,
+            Capability::Entity,
+            Capability::Radio,
+            Capability::Browse
+        ]
+    );
     let m = plugin.manifest();
     assert_eq!(m.domains, ["api.deezer.com", "www.deezer.com", "link.deezer.com", "*.dzcdn.net"]);
     let rl = m.rate_limit.unwrap();
     assert_eq!((rl.requests, rl.per_seconds), (45, 5));
     assert!(!m.descriptive_user_agent);
+    assert_eq!((m.version.as_str(), m.contract.as_str()), ("0.2.0", "1.1"));
 }
 
 #[tokio::test]
@@ -167,4 +176,137 @@ async fn quota_errors_retry_past_the_cache() {
     assert_eq!(http_calls(), 1);
     assert_eq!(host.fetch_entity(&plugin, busy, "FR", None).await.unwrap_err(), CallError::RateLimited);
     assert_eq!(http_calls(), 2);
+}
+
+fn is_iso_date(d: &str) -> bool {
+    d.len() == 10
+        && d.bytes().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        })
+}
+
+#[tokio::test]
+async fn browse_categories_lists_featured_then_genres() {
+    let (host, plugin, _) = load("deezer", "browse_genres");
+    let cats = host.browse_categories(&plugin, "FR").await.unwrap();
+    let head: Vec<_> = cats[..2]
+        .iter()
+        .map(|c| (c.id.as_str(), c.title.as_str(), c.featured))
+        .collect();
+    assert_eq!(
+        head,
+        [
+            ("chart:0", "Top 50", true),
+            ("selection:0", "Sélection", true)
+        ]
+    );
+    // The covers of the chart's first track and of the selection's first album.
+    let cover = |c: &plugin_host::music::browse::Category| {
+        c.artwork.first().map(|i| i.url.clone()).unwrap_or_default()
+    };
+    assert!(
+        cover(&cats[0]).contains("/a7f9bae0243c512059298a68d09f45a1/1000x1000"),
+        "{:?}",
+        cats[0]
+    );
+    assert!(
+        cover(&cats[1]).contains("/ea1408a80efbe37b26ee99a62c323525/1000x1000"),
+        "{:?}",
+        cats[1]
+    );
+    // Then the genres, without "Tous" (id 0).
+    assert_eq!(cats.len(), 2 + 25);
+    assert!(cats[2..].iter().all(|c| !c.featured
+        && c.id.starts_with("genre:")
+        && c.id != "genre:0"
+        && !c.artwork.is_empty()));
+    assert_eq!(
+        (cats[2].id.as_str(), cats[2].title.as_str()),
+        ("genre:132", "Pop")
+    );
+}
+
+#[tokio::test]
+async fn browse_chart_category_has_track_shelf() {
+    let (host, plugin, _) = load("deezer", "browse_chart");
+    let page = host
+        .browse_category(&plugin, "chart:0", "FR", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        (page.title.as_str(), page.next.as_deref()),
+        ("Top 50", None)
+    );
+    let titles: Vec<_> = page
+        .shelves
+        .iter()
+        .map(|s| (s.title.as_str(), s.items.len()))
+        .collect();
+    assert_eq!(
+        titles,
+        [
+            ("tracks", 50),
+            ("albums", 49),
+            ("artists", 50),
+            ("playlists", 50)
+        ]
+    );
+    let Entity::Track(t) = &page.shelves[0].items[0] else {
+        panic!("{:?}", page.shelves[0].items[0])
+    };
+    assert_eq!(
+        (t.title.as_str(), t.artwork[0].width),
+        ("Dai Dai", Some(1000))
+    );
+    // Unknown ids: `not-found` without a request (none is recorded for them).
+    for id in ["foo:1", "chart:x", "genre:"] {
+        assert_eq!(
+            host.browse_category(&plugin, id, "FR", None)
+                .await
+                .unwrap_err(),
+            CallError::NotFound,
+            "{id}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn browse_selection_is_one_album_shelf() {
+    let (host, plugin, _) = load("deezer", "browse_selection");
+    let page = host
+        .browse_category(&plugin, "selection:0", "FR", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        (page.title.as_str(), page.next.as_deref()),
+        ("Sélection", None)
+    );
+    let titles: Vec<_> = page
+        .shelves
+        .iter()
+        .map(|s| (s.title.as_str(), s.items.len()))
+        .collect();
+    assert_eq!(titles, [("albums", 10)]);
+}
+
+#[tokio::test]
+async fn browse_releases_has_dates() {
+    let (host, plugin, _) = load("deezer", "browse_releases");
+    let releases = host.browse_releases(&plugin, "27", "FR").await.unwrap();
+    assert_eq!(releases.len(), 39);
+    assert!(
+        releases.iter().all(|r| is_iso_date(&r.date)),
+        "{releases:?}"
+    );
+    assert!(releases.windows(2).all(|w| w[0].date >= w[1].date));
+    assert_eq!(
+        (releases[0].date.as_str(), releases[0].album.id.as_str()),
+        ("2023-11-17", "494309801")
+    );
+    let bogus = host.browse_releases(&plugin, "../user/1", "FR").await;
+    assert_eq!(bogus.unwrap_err(), CallError::NotFound);
 }

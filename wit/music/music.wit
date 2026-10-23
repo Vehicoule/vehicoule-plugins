@@ -1,4 +1,4 @@
-package vehicoule:music@1.0.0;
+package vehicoule:music@1.1.0;
 
 interface types {
     variant error {
@@ -157,6 +157,34 @@ interface radio {
     radio: func(seed: track-query, region: string, limit: u32) -> result<list<track>, error>;
 }
 
+interface browse {
+    use types.{error, image, album};
+    use entity.{entity};
+
+    record category {
+        id: string,
+        title: string,
+        artwork: list<image>,
+        /// Shown as a big card at the top of Explore.
+        featured: bool,
+    }
+    record shelf { title: string, items: list<entity> }
+    record category-page { title: string, shelves: list<shelf>, next: option<string> }
+    record release {
+        album: album,
+        /// ISO 8601 date, `YYYY-MM-DD`.
+        date: string,
+    }
+
+    /// Explore's idle view: featured cards first, then the browse grid.
+    categories: func(region: string) -> result<list<category>, error>;
+    /// One category's shelves. Named `fetch-category` because WIT types and functions share a
+    /// namespace and `category` is the record above.
+    fetch-category: func(id: string, region: string, cursor: option<string>) -> result<category-page, error>;
+    /// An artist's releases, newest first (for "new from your artists").
+    releases: func(artist-id: string, region: string) -> result<list<release>, error>;
+}
+
 /// Host-side view: every capability. A plugin targets its own world with only what it implements.
 world plugin {
     include vehicoule:host/imports@1.0.0;
@@ -166,6 +194,7 @@ world plugin {
     export resolve;
     export lyrics;
     export radio;
+    export browse;
 }
 
 /// Guest-side helpers (the SDK): host imports and shared types, no exports.

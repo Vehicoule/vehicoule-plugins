@@ -295,18 +295,27 @@ async fn browse_selection_is_one_album_shelf() {
 
 #[tokio::test]
 async fn browse_releases_has_dates() {
-    let (host, plugin, _) = load("deezer", "browse_releases");
-    let releases = host.browse_releases(&plugin, "27", "FR").await.unwrap();
-    assert_eq!(releases.len(), 39);
+    let (host, plugin, reports) = load("deezer", "browse_releases");
+    // Werenoi: 51 releases over two pages of 50, plus the artist.
+    let releases = host
+        .browse_releases(&plugin, "121672292", "FR")
+        .await
+        .unwrap();
+    assert_eq!(reports.lock().unwrap().last().unwrap().http_calls, 3);
+    assert_eq!(releases.len(), 51);
     assert!(
         releases.iter().all(|r| is_iso_date(&r.date)),
         "{releases:?}"
     );
     assert!(releases.windows(2).all(|w| w[0].date >= w[1].date));
     assert_eq!(
-        (releases[0].date.as_str(), releases[0].album.id.as_str()),
-        ("2023-11-17", "494309801")
+        (releases[0].date.as_str(), releases[0].album.title.as_str()),
+        ("2025-05-02", "Piano")
     );
+    assert_eq!(releases[50].album.id, "231008772");
+    assert!(releases.iter().all(|r| r.album.artists.len() == 1
+        && r.album.artists[0].id.as_deref() == Some("121672292")
+        && r.album.artists[0].name == "Werenoi"));
     let bogus = host.browse_releases(&plugin, "../user/1", "FR").await;
     assert_eq!(bogus.unwrap_err(), CallError::NotFound);
 }

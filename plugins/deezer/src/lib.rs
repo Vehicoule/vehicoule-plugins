@@ -32,6 +32,8 @@ const TRACKS_PAGE: u32 = 100;
 const TOP_TRACKS: u32 = 20;
 /// An artist's albums per page.
 const ALBUMS_PAGE: u32 = 50;
+/// An artist's releases: at most this many pages of albums (200).
+const RELEASE_PAGES: usize = 4;
 
 struct Deezer;
 
@@ -45,11 +47,11 @@ fn uncached(mut req: Request) -> Request {
     req
 }
 
-/// Sends every request in one host batch; the bodies in order, or the first error. Deezer's
-/// own JSON errors are left to `api`, except its quota and "busy" ones: they come as HTTP 200,
+/// Sends every request in one host batch; each body in order, or its error. Deezer's own
+/// JSON errors are left to `api`, except its quota and "busy" ones: they come as HTTP 200,
 /// which the host caches for a day, so each such request is sent once more past the cache.
-fn send_all(reqs: Vec<Request>) -> Result<Vec<Vec<u8>>, Error> {
-    let send = |reqs: &[Request]| -> Result<Vec<Vec<u8>>, Error> {
+fn send_each(reqs: Vec<Request>) -> Vec<Result<Vec<u8>, Error>> {
+    let send = |reqs: &[Request]| -> Vec<Result<Vec<u8>, Error>> {
         host_http::send_batch(reqs)
             .into_iter()
             .map(|r| {
@@ -58,24 +60,45 @@ fn send_all(reqs: Vec<Request>) -> Result<Vec<Vec<u8>>, Error> {
             })
             .collect()
     };
-    let mut bodies = send(&reqs)?;
-    let limited: Vec<usize> = (0..bodies.len()).filter(|&i| matches!(api::deezer_error(&bodies[i]), Some(Error::RateLimited))).collect();
+    let mut bodies = send(&reqs);
+    let limited: Vec<usize> = (0..bodies.len())
+        .filter(|&i| {
+            matches!(
+                bodies[i].as_deref().map(api::deezer_error),
+                Ok(Some(Error::RateLimited))
+            )
+        })
+        .collect();
     if !limited.is_empty() {
         let retry: Vec<Request> = limited.iter().map(|&i| uncached(reqs[i].clone())).collect();
-        for (i, body) in limited.into_iter().zip(send(&retry)?) {
+        for (i, body) in limited.into_iter().zip(send(&retry)) {
             bodies[i] = body;
         }
     }
-    Ok(bodies)
+    bodies
 }
 
-/// GETs every URL in one host batch (see `send_all`).
+/// `send_each`, failing on the first error.
+fn send_all(reqs: Vec<Request>) -> Result<Vec<Vec<u8>>, Error> {
+    send_each(reqs).into_iter().collect()
+}
+
+/// GETs every URL in one host batch (see `send_each`).
+fn get_each(urls: Vec<String>) -> Vec<Result<Vec<u8>, Error>> {
+    send_each(urls.into_iter().map(get_request).collect())
+}
+
+/// GETs every URL in one host batch, failing on the first error.
 fn get_all(urls: Vec<String>) -> Result<Vec<Vec<u8>>, Error> {
     send_all(urls.into_iter().map(get_request).collect())
 }
 
 fn get(url: String) -> Result<Vec<u8>, Error> {
     Ok(get_all(vec![url])?.remove(0))
+}
+
+fn artist_albums_url(id: &str, index: &str) -> String {
+    format!("{API}/artist/{id}/albums?index={index}&limit={ALBUMS_PAGE}")
 }
 
 /// Deezer's `index`: 0 without a cursor.
@@ -166,10 +189,7 @@ impl entity::Guest for Deezer {
                 Ok(page(Entity::Album(album), tracks, vec![], next))
             }
             EntityKind::Artist => {
-                let mut urls = vec![
-                    format!("{API}/artist/{id}"),
-                    format!("{API}/artist/{id}/albums?index={index}&limit={ALBUMS_PAGE}"),
-                ];
+                let mut urls = vec![format!("{API}/artist/{id}"), artist_albums_url(id, index)];
                 if cursor.is_none() {
                     urls.push(format!("{API}/artist/{id}/top?limit={TOP_TRACKS}"));
                 }
@@ -252,48 +272,22 @@ impl radio::Guest for Deezer {
     }
 }
 
-/// The featured cards' titles: Deezer's own names, not interface text.
-const TOP: &str = "Top 50";
-const SELECTION: &str = "Sélection";
-
 fn chart_url(genre: &str) -> String {
     format!("{API}/chart/{genre}?limit=50")
 }
 
 /// Deezer's charts follow the caller's IP: the region is not sent. A chart fits one page.
 impl browse::Guest for Deezer {
-    /// The chart and the editors' selection, each with the cover of its first item, then the
-    /// genres.
+    /// One batch; only the genres are required (see `api::categories`).
     fn categories(_region: String) -> Result<Vec<Category>, Error> {
-        let b = get_all(vec![
+        let [genres, top, pick]: [_; 3] = get_each(vec![
             format!("{API}/genre"),
             format!("{API}/chart/0/tracks?limit=1"),
             format!("{API}/editorial/0/selection"),
-        ])?;
-        let top = api::parse_tracks(&b[1])?
-            .0
-            .into_iter()
-            .next()
-            .map(|t| t.artwork)
-            .unwrap_or_default();
-        let pick = api::parse_albums(&b[2])?
-            .0
-            .into_iter()
-            .next()
-            .map(|a| a.artwork)
-            .unwrap_or_default();
-        let featured = |id: &str, title: &str, artwork| Category {
-            id: id.into(),
-            title: title.into(),
-            artwork,
-            featured: true,
-        };
-        let mut out = vec![
-            featured("chart:0", TOP, top),
-            featured("selection:0", SELECTION, pick),
-        ];
-        out.extend(api::parse_genres(&b[0])?);
-        Ok(out)
+        ])
+        .try_into()
+        .map_err(|_| Error::Internal("one response per request".into()))?;
+        api::categories(&genres?, top, pick)
     }
 
     fn fetch_category(
@@ -302,7 +296,7 @@ impl browse::Guest for Deezer {
         _cursor: Option<String>,
     ) -> Result<CategoryPage, Error> {
         let (title, shelves) = match api::category_id(&id)? {
-            CategoryId::Chart(g) => (TOP.into(), api::parse_chart(&get(chart_url(g))?)?),
+            CategoryId::Chart(g) => (api::TOP.into(), api::parse_chart(&get(chart_url(g))?)?),
             // The genre's name from the list `categories` fetched (likely in the host's cache).
             CategoryId::Genre(g) => {
                 let b = get_all(vec![format!("{API}/genre"), chart_url(g)])?;
@@ -313,7 +307,7 @@ impl browse::Guest for Deezer {
                 (genre.title, api::parse_chart(&b[1])?)
             }
             CategoryId::Selection(g) => (
-                SELECTION.into(),
+                api::SELECTION.into(),
                 api::parse_selection(&get(format!("{API}/editorial/{g}/selection"))?)?,
             ),
         };
@@ -324,13 +318,19 @@ impl browse::Guest for Deezer {
         })
     }
 
+    /// The artist and the first page of its albums in one batch, then the next pages.
     fn releases(artist_id: String, _region: String) -> Result<Vec<Release>, Error> {
         if !links::is_id(&artist_id) {
             return Err(Error::NotFound);
         }
-        api::parse_releases(&get(format!(
-            "{API}/artist/{artist_id}/albums?limit={ALBUMS_PAGE}"
-        ))?)
+        let mut b = get_all(vec![
+            format!("{API}/artist/{artist_id}"),
+            artist_albums_url(&artist_id, "0"),
+        ])?;
+        let first = b.remove(1);
+        api::releases(&b[0], first, RELEASE_PAGES, |index| {
+            get(artist_albums_url(&artist_id, index))
+        })
     }
 }
 

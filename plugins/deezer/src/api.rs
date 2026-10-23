@@ -150,33 +150,88 @@ pub fn parse_selection(body: &[u8]) -> Result<Vec<Shelf>, Error> {
     )]))
 }
 
-/// An artist's albums, newest first; those without a full `YYYY-MM-DD` date are dropped.
-pub fn parse_releases(body: &[u8]) -> Result<Vec<Release>, Error> {
-    let list: List = parse(body)?;
-    let mut releases: Vec<Release> = items(list.data, |a: DzAlbum| a)
-        .filter_map(|a| {
-            let date = a.release_date.clone().filter(|d| is_date(d))?;
-            Some(Release {
-                album: album(a),
-                date,
-            })
-        })
-        .collect();
-    releases.sort_by(|a, b| b.date.cmp(&a.date));
-    Ok(releases)
+/// The featured cards' titles: Deezer's own names, not interface text.
+pub const TOP: &str = "Top 50";
+pub const SELECTION: &str = "Sélection";
+
+/// The chart and the editors' selection, each with the cover of its first item, then the
+/// genres. A cover is best-effort: when its request or its body fails, the card has none.
+pub fn categories(
+    genres: &[u8],
+    top: Result<Vec<u8>, Error>,
+    pick: Result<Vec<u8>, Error>,
+) -> Result<Vec<Category>, Error> {
+    let top = top.and_then(|b| parse_tracks(&b)).ok();
+    let top = top
+        .and_then(|(t, _)| t.into_iter().next())
+        .map(|t| t.artwork);
+    let pick = pick.and_then(|b| parse_albums(&b)).ok();
+    let pick = pick
+        .and_then(|(a, _)| a.into_iter().next())
+        .map(|a| a.artwork);
+    let featured = |id: &str, title: &str, artwork: Option<Vec<Image>>| Category {
+        id: id.into(),
+        title: title.into(),
+        artwork: artwork.unwrap_or_default(),
+        featured: true,
+    };
+    let mut out = vec![
+        featured("chart:0", TOP, top),
+        featured("selection:0", SELECTION, pick),
+    ];
+    out.extend(parse_genres(genres)?);
+    Ok(out)
 }
 
-/// `YYYY-MM-DD`, year not zero (Deezer's `0000-00-00`).
-fn is_date(d: &str) -> bool {
-    d.len() == 10
-        && !d.starts_with("0000")
-        && d.bytes().enumerate().all(|(i, b)| {
-            if i == 4 || i == 7 {
-                b == b'-'
-            } else {
-                b.is_ascii_digit()
+/// An artist's releases, newest first, each album credited to the artist (`artist` is
+/// `/artist/<id>`). `first` is the first page of `/artist/<id>/albums`, which Deezer orders
+/// by type, not by date: `fetch(index)` gets the next pages, up to `max_pages` in all.
+/// Albums without a full date are dropped.
+pub fn releases(
+    artist: &[u8],
+    first: Vec<u8>,
+    max_pages: usize,
+    mut fetch: impl FnMut(&str) -> Result<Vec<u8>, Error>,
+) -> Result<Vec<Release>, Error> {
+    let artist = parse_artist(artist)?;
+    let mut out = vec![];
+    let mut body = first;
+    for page in 1.. {
+        let list: List = parse(&body)?;
+        out.extend(items(list.data, |a: DzAlbum| a).filter_map(|a| {
+            let date = a.release_date.clone().filter(|d| is_date(d))?;
+            let mut album = album(a);
+            if album.artists.is_empty() {
+                album.artists.push(ArtistRef {
+                    id: Some(artist.id.clone()),
+                    name: artist.name.clone(),
+                });
             }
-        })
+            Some(Release { album, date })
+        }));
+        match list.next.as_deref().and_then(next_index) {
+            Some(index) if page < max_pages => body = fetch(&index)?,
+            _ => break,
+        }
+    }
+    out.sort_by(|a, b| b.date.cmp(&a.date));
+    Ok(out)
+}
+
+/// `YYYY-MM-DD`: year not zero (Deezer's `0000-00-00`), month 1 to 12, day 1 to 31.
+fn is_date(d: &str) -> bool {
+    let num = |at: std::ops::Range<usize>| {
+        d.get(at)
+            .filter(|n| n.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|n| n.parse::<u32>().ok())
+    };
+    d.len() == 10
+        && d.get(4..5) == Some("-")
+        && d.get(7..8) == Some("-")
+        && matches!(
+            (num(0..4), num(5..7), num(8..10)),
+            (Some(1..), Some(1..=12), Some(1..=31))
+        )
 }
 
 /// Empty shelves are left out.
@@ -553,29 +608,184 @@ mod tests {
         );
     }
 
+    /// A page of hand-built albums `(id, date)`, and the index of the next one.
+    fn albums_page(albums: &[(u32, Option<&str>)], next: Option<u32>) -> Vec<u8> {
+        let data: Vec<String> = albums
+            .iter()
+            .map(|(id, date)| match date {
+                Some(d) => format!(r#"{{"id":{id},"title":"A{id}","release_date":"{d}"}}"#),
+                None => format!(r#"{{"id":{id},"title":"A{id}"}}"#),
+            })
+            .collect();
+        let next = next.map_or(String::new(), |i| {
+            format!(r#","next":"https://api.deezer.com/artist/1/albums?limit=50&index={i}""#)
+        });
+        format!(r#"{{"data":[{}]{next}}}"#, data.join(",")).into_bytes()
+    }
+
+    const ARTIST: &[u8] = br#"{"id":1,"name":"Someone"}"#;
+
+    fn no_fetch(index: &str) -> Result<Vec<u8>, Error> {
+        panic!("unexpected fetch of index {index}")
+    }
+
+    fn release_ids(releases: &[Release]) -> Vec<(&str, &str)> {
+        releases
+            .iter()
+            .map(|r| (r.date.as_str(), r.album.id.as_str()))
+            .collect()
+    }
+
     #[test]
     fn releases_sorted_newest_first_undated_dropped() {
-        let releases = parse_releases(fixture!("browse_releases/artist_albums.json")).unwrap();
-        assert_eq!(releases.len(), 39);
-        assert!(
-            releases.windows(2).all(|w| w[0].date >= w[1].date),
-            "{releases:?}"
-        );
+        // Recorded: 51 releases over two pages (Deezer groups them by type, not by date).
+        let mut asked = vec![];
+        let got = releases(
+            fixture!("browse_releases/artist.json"),
+            fixture!("browse_releases/albums_0.json").to_vec(),
+            4,
+            |index| {
+                asked.push(index.to_string());
+                Ok(fixture!("browse_releases/albums_50.json").to_vec())
+            },
+        )
+        .unwrap();
+        assert_eq!(asked, ["50"]);
+        assert_eq!(got.len(), 51);
+        assert!(got.windows(2).all(|w| w[0].date >= w[1].date), "{got:?}");
         assert_eq!(
-            (releases[0].date.as_str(), releases[0].album.title.as_str()),
-            ("2023-11-17", "Random Access Memories (Drumless Edition)")
+            release_ids(&got)[..2],
+            [("2025-05-02", "747767851"), ("2025-04-11", "747830701")]
         );
-        assert_eq!(releases[38].date, "1997-01-16");
+        // The one album of page 2 is in, last.
+        assert_eq!(release_ids(&got)[50], ("2021-05-28", "231008772"));
 
-        let body = br#"{"data":[{"id":1,"title":"Old","release_date":"2001-03-07"},{"id":2,"title":"Undated"},
-            {"id":3,"title":"Zero","release_date":"0000-00-00"},{"id":4,"title":"New","release_date":"2026-10-02"},
-            {"id":5,"title":"Odd","release_date":"2026"}]}"#;
-        let releases = parse_releases(body).unwrap();
-        let got: Vec<_> = releases
+        // The newest release on page 2; undated, zero or partial dates dropped.
+        let first = albums_page(
+            &[(1, Some("2001-03-07")), (2, None), (3, Some("0000-00-00"))],
+            Some(50),
+        );
+        let second = albums_page(&[(4, Some("2026-10-02")), (5, Some("2026"))], None);
+        let got = releases(ARTIST, first, 4, |index| {
+            assert_eq!(index, "50");
+            Ok(second.clone())
+        })
+        .unwrap();
+        assert_eq!(
+            release_ids(&got),
+            [("2026-10-02", "4"), ("2001-03-07", "1")]
+        );
+    }
+
+    #[test]
+    fn release_pages_are_capped() {
+        let mut asked = vec![];
+        let got = releases(
+            ARTIST,
+            albums_page(&[(0, Some("2020-01-01"))], Some(50)),
+            4,
+            |index| {
+                asked.push(index.to_string());
+                let i: u32 = index.parse().unwrap();
+                Ok(albums_page(&[(i, Some("2020-01-01"))], Some(i + 50)))
+            },
+        )
+        .unwrap();
+        assert_eq!(asked, ["50", "100", "150"]);
+        assert_eq!(got.len(), 4);
+        // A failed page fails the call.
+        let failed = releases(ARTIST, albums_page(&[], Some(50)), 4, |_| {
+            Err(Error::RateLimited)
+        });
+        assert_eq!(dbg(failed), dbg(Err::<(), _>(Error::RateLimited)));
+    }
+
+    #[test]
+    fn releases_carry_the_artist() {
+        let got = releases(
+            fixture!("browse_releases/artist.json"),
+            fixture!("browse_releases/albums_0.json").to_vec(),
+            1,
+            no_fetch,
+        )
+        .unwrap();
+        assert_eq!(got.len(), 50);
+        let werenoi = dbg([ArtistRef {
+            id: Some("121672292".into()),
+            name: "Werenoi".into(),
+        }]);
+        assert!(
+            got.iter().all(|r| dbg(&r.album.artists) == werenoi),
+            "{got:?}"
+        );
+        // An unknown artist (Deezer's 800) is `not-found`.
+        let unknown = releases(
+            fixture!("entity/track_unknown.json"),
+            albums_page(&[], None),
+            4,
+            no_fetch,
+        );
+        assert_eq!(dbg(unknown), dbg(Err::<(), _>(Error::NotFound)));
+    }
+
+    #[test]
+    fn dates_need_a_real_month_and_day() {
+        assert!(is_date("2026-10-02") && is_date("2024-02-29") && is_date("1997-12-31"));
+        for bad in [
+            "2026-00-00",
+            "2026-13-45",
+            "2026-01-00",
+            "2026-01-32",
+            "0000-01-01",
+            "2026-1-02",
+            "2026/10/02",
+            "2026-10-0é",
+        ] {
+            assert!(!is_date(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn featured_covers_are_best_effort() {
+        let genres = fixture!("browse_genres/genre.json");
+        let ok = |path: &[u8]| Ok::<_, Error>(path.to_vec());
+        let cats = categories(
+            genres,
+            ok(fixture!("browse_genres/chart_tracks.json")),
+            ok(fixture!("browse_genres/selection.json")),
+        )
+        .unwrap();
+        let head: Vec<_> = cats[..2]
             .iter()
-            .map(|r| (r.date.as_str(), r.album.title.as_str()))
+            .map(|c| (c.id.as_str(), c.title.as_str(), c.featured, c.artwork.len()))
             .collect();
-        assert_eq!(got, [("2026-10-02", "New"), ("2001-03-07", "Old")]);
+        assert_eq!(
+            head,
+            [
+                ("chart:0", TOP, true, 2),
+                ("selection:0", SELECTION, true, 2)
+            ]
+        );
+        assert_eq!(cats.len(), 27);
+
+        // A cover that fails (an error body, a transport error, junk) leaves its card bare.
+        let cats = categories(
+            genres,
+            ok(fixture!("entity/track_unknown.json")),
+            Err(Error::Network("down".into())),
+        )
+        .unwrap();
+        let head: Vec<_> = cats[..2]
+            .iter()
+            .map(|c| (c.id.as_str(), c.artwork.len()))
+            .collect();
+        assert_eq!(head, [("chart:0", 0), ("selection:0", 0)]);
+        assert_eq!(cats.len(), 27);
+        let cats = categories(genres, ok(b"<html>"), ok(br#"{"data":[]}"#)).unwrap();
+        assert!(cats[0].artwork.is_empty() && cats[1].artwork.is_empty());
+        // The genres are not optional.
+        let failed = categories(fixture!("entity/track_unknown.json"), ok(b""), ok(b""));
+        assert_eq!(dbg(failed), dbg(Err::<(), _>(Error::NotFound)));
     }
 
     #[test]

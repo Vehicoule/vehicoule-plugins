@@ -2,6 +2,8 @@
 
 Plugins officiels de Vehicoule (deezer, itunes, lrclib) et outillage de publication du feed. Licence : MIT OR Apache-2.0.
 
+Style : guide Rust de Google, appliqué par rustfmt et clippy (voir Cargo.toml).
+
 Installer l'outil de signature avant `scripts/publish.sh` :
 
 ```sh

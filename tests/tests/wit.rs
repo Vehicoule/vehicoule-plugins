@@ -24,16 +24,16 @@ fn fake_root() -> tempfile::TempDir {
     let repo = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
     let root = tempfile::tempdir().expect("tempdir for fake repo root");
 
-    std::fs::create_dir_all(root.path().join("scripts")).unwrap();
-    std::fs::copy(repo.join("scripts/publish.sh"), root.path().join("scripts/publish.sh")).unwrap();
+    std::fs::create_dir_all(root.path().join("scripts")).expect("creating scripts/");
+    std::fs::copy(repo.join("scripts/publish.sh"), root.path().join("scripts/publish.sh")).expect("copying publish.sh");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(root.path().join("scripts/publish.sh"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::set_permissions(root.path().join("scripts/publish.sh"), std::fs::Permissions::from_mode(0o755)).expect("making publish.sh executable");
     }
-    std::fs::create_dir_all(root.path().join("plugins")).unwrap(); // no plugins today: zero to build
-    std::fs::create_dir_all(root.path().join("feed")).unwrap();
-    std::fs::write(root.path().join("feed/sequence"), "0\n").unwrap();
+    std::fs::create_dir_all(root.path().join("plugins")).expect("creating plugins/"); // no plugins today: zero to build
+    std::fs::create_dir_all(root.path().join("feed")).expect("creating feed/");
+    std::fs::write(root.path().join("feed/sequence"), "0\n").expect("writing feed/sequence");
     root
 }
 

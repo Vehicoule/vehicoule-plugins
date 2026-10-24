@@ -20,7 +20,7 @@ fn workspace() -> &'static Path {
 fn build(plugin: &str) -> Vec<u8> {
     static CACHE: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut cache = cache.lock().unwrap();
+    let mut cache = cache.lock().expect("build cache poisoned: a thread panicked while holding it");
     let path = cache
         .entry(plugin.to_string())
         .or_insert_with(|| {
@@ -55,14 +55,14 @@ pub fn load(plugin: &str, fixtures: &str) -> (Host, Plugin, Reports) {
         storage: Arc::new(MemoryStorage::default()),
         events: Arc::new(move |e| {
             if let HostEvent::Call(r) = e {
-                sink.lock().unwrap().push(r);
+                sink.lock().expect("reports poisoned: a thread panicked while holding it").push(r);
             }
         }),
         limits: Limits::default(),
         app_version: "0.0.0-test".into(),
         net: NetPolicy::replay(&fixtures_dir),
     })
-    .unwrap();
-    let plugin = host.load(&manifest, &wasm).unwrap();
+    .expect("starting the test host");
+    let plugin = host.load(&manifest, &wasm).expect("loading the plugin into the test host");
     (host, plugin, reports)
 }

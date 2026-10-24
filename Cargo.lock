@@ -2216,7 +2216,7 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 [[package]]
 name = "vehicoule-sdk"
 version = "1.0.0"
-source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=contract-v1.1.0#c2433019b9fc77690a62810b4c3b6dea26e6f76c"
+source = "git+file:///Users/btw/Documents/repo/Vehicoule?tag=contract-v1.1.1#e659464eea27dd73d6b59848a84409275d370b16"
 dependencies = [
  "form_urlencoded",
  "serde",

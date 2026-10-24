@@ -74,7 +74,7 @@ pub enum CategoryId<'a> {
 /// Anything else, or a genre that is not decimal, is `not-found` before any request.
 pub fn category_id(id: &str) -> Result<CategoryId<'_>, Error> {
     match id.split_once(':') {
-        Some((kind, g)) if crate::links::is_id(g) => match kind {
+        Some((kind, g)) if vehicoule_sdk::is_decimal_id(g) => match kind {
             "chart" => Ok(CategoryId::Chart(g)),
             "genre" => Ok(CategoryId::Genre(g)),
             "selection" => Ok(CategoryId::Selection(g)),
@@ -250,7 +250,7 @@ fn parse<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     if let Some(e) = deezer_error(body) {
         return Err(e);
     }
-    serde_json::from_slice(body).map_err(|e| Error::Internal(e.to_string()))
+    vehicoule_sdk::json(body)
 }
 
 #[derive(Deserialize, Default)]
@@ -282,7 +282,7 @@ fn items<D: DeserializeOwned, T>(
 fn next_index(next: &str) -> Option<String> {
     let (_, query) = next.split_once('?')?;
     let index = query.split('&').find_map(|p| p.strip_prefix("index="))?;
-    crate::links::is_id(index).then(|| index.to_string())
+    vehicoule_sdk::is_decimal_id(index).then(|| index.to_string())
 }
 
 // Only the fields in use. A reference (`track.artist`, `track.album`) is the same object

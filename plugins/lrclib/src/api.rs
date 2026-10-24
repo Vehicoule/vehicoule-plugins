@@ -5,7 +5,7 @@
 
 use serde::Deserialize;
 use vehicoule_sdk::host_http::{self, Method, Request};
-use vehicoule_sdk::query;
+use vehicoule_sdk::{json, query};
 use vehicoule_sdk::types::{Error, TrackQuery};
 
 use crate::exports::vehicoule::music::lyrics::{Line, Lyrics};
@@ -33,7 +33,7 @@ pub fn fetch(track: &TrackQuery) -> Result<Lyrics, Error> {
     let req = Request { method: Method::Get, url: get_url(track), headers: vec![], body: None };
     let resp = host_http::send(&req).map_err(vehicoule_sdk::from_http_error)?;
     match resp.status {
-        200..=299 => to_lyrics(parse_track(&resp.body)?),
+        200..=299 => to_lyrics(json(&resp.body)?),
         404 => search_fallback(track),
         status => Err(vehicoule_sdk::status_error(status).unwrap_or(Error::Internal(format!("HTTP {status}")))),
     }
@@ -48,7 +48,7 @@ fn search_fallback(track: &TrackQuery) -> Result<Lyrics, Error> {
     if let Some(e) = vehicoule_sdk::status_error(resp.status) {
         return Err(e);
     }
-    let results: Vec<LrcTrack> = serde_json::from_slice(&resp.body).map_err(|e| Error::Internal(e.to_string()))?;
+    let results: Vec<LrcTrack> = json(&resp.body)?;
     to_lyrics(pick(results, track.duration_ms).ok_or(Error::NotFound)?)
 }
 
@@ -83,10 +83,6 @@ fn to_lyrics(t: LrcTrack) -> Result<Lyrics, Error> {
         return Err(Error::NotFound);
     }
     Ok(Lyrics { plain, synced })
-}
-
-fn parse_track(body: &[u8]) -> Result<LrcTrack, Error> {
-    serde_json::from_slice(body).map_err(|e| Error::Internal(e.to_string()))
 }
 
 /// `track_name`, `artist_name` (the query's first artist), `album_name` (omitted when the

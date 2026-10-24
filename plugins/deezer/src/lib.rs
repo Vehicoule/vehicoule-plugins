@@ -23,7 +23,7 @@ use exports::vehicoule::music::entity::{self, Entity, EntityPage};
 use exports::vehicoule::music::{radio, search};
 use vehicoule_sdk::host_http::{self, Method, Request};
 use vehicoule_sdk::types::{AlbumRef, ArtistRef, EntityKind, EntityRef, Error, Track, TrackQuery};
-use vehicoule_sdk::{from_http_error, query, status_error};
+use vehicoule_sdk::{from_http_error, is_decimal_id, query, send_batch_bodies, status_error};
 
 const API: &str = "https://api.deezer.com";
 /// Tracks per page of an album or a playlist.
@@ -51,16 +51,7 @@ fn uncached(mut req: Request) -> Request {
 /// JSON errors are left to `api`, except its quota and "busy" ones: they come as HTTP 200,
 /// which the host caches for a day, so each such request is sent once more past the cache.
 fn send_each(reqs: Vec<Request>) -> Vec<Result<Vec<u8>, Error>> {
-    let send = |reqs: &[Request]| -> Vec<Result<Vec<u8>, Error>> {
-        host_http::send_batch(reqs)
-            .into_iter()
-            .map(|r| {
-                let resp = r.map_err(from_http_error)?;
-                status_error(resp.status).map_or(Ok(resp.body), Err)
-            })
-            .collect()
-    };
-    let mut bodies = send(&reqs);
+    let mut bodies = send_batch_bodies(&reqs, status_error);
     let limited: Vec<usize> = (0..bodies.len())
         .filter(|&i| {
             matches!(
@@ -71,7 +62,7 @@ fn send_each(reqs: Vec<Request>) -> Vec<Result<Vec<u8>, Error>> {
         .collect();
     if !limited.is_empty() {
         let retry: Vec<Request> = limited.iter().map(|&i| uncached(reqs[i].clone())).collect();
-        for (i, body) in limited.into_iter().zip(send(&retry)) {
+        for (i, body) in limited.into_iter().zip(send_batch_bodies(&retry, status_error)) {
             bodies[i] = body;
         }
     }
@@ -105,7 +96,7 @@ fn artist_albums_url(id: &str, index: &str) -> String {
 fn index(cursor: Option<&str>) -> Result<&str, Error> {
     match cursor {
         None => Ok("0"),
-        Some(c) if links::is_id(c) => Ok(c),
+        Some(c) if is_decimal_id(c) => Ok(c),
         Some(c) => Err(Error::Internal(format!("bad cursor {c:?}"))),
     }
 }
@@ -161,7 +152,7 @@ impl search::Guest for Deezer {
 impl entity::Guest for Deezer {
     /// The region is not sent: Deezer locates the caller by IP.
     fn fetch(target: EntityRef, _region: String, cursor: Option<String>) -> Result<EntityPage, Error> {
-        if !links::is_id(&target.id) {
+        if !is_decimal_id(&target.id) {
             return Err(Error::NotFound);
         }
         let (id, index) = (&target.id, index(cursor.as_deref())?);
@@ -245,7 +236,7 @@ impl radio::Guest for Deezer {
     /// The radio of the seed's artist: the seed by its id, else (no id, or one Deezer no
     /// longer knows) the first search match.
     fn radio(seed: TrackQuery, _region: String, limit: u32) -> Result<Vec<Track>, Error> {
-        let by_id = match seed.id.as_deref().filter(|id| links::is_id(id)) {
+        let by_id = match seed.id.as_deref().filter(|id| is_decimal_id(id)) {
             Some(id) => match get(format!("{API}/track/{id}")).and_then(|body| api::parse_track(&body)) {
                 Err(Error::NotFound) => None,
                 found => Some(found?),
@@ -320,7 +311,7 @@ impl browse::Guest for Deezer {
 
     /// The artist and the first page of its albums in one batch, then the next pages.
     fn releases(artist_id: String, _region: String) -> Result<Vec<Release>, Error> {
-        if !links::is_id(&artist_id) {
+        if !is_decimal_id(&artist_id) {
             return Err(Error::NotFound);
         }
         let mut b = get_all(vec![

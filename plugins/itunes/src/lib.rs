@@ -58,7 +58,7 @@ fn lookup_url(id: &str, entity: &str, country: &str, limit: Option<&str>) -> Str
 fn offset(cursor: Option<&str>) -> Result<u32, Error> {
     match cursor {
         None => Ok(0),
-        Some(c) if api::is_id(c) => c.parse().map_err(|_| Error::NotFound),
+        Some(c) if vehicoule_sdk::is_decimal_id(c) => c.parse().map_err(|_| Error::NotFound),
         Some(c) => Err(Error::Internal(format!("bad cursor {c:?}"))),
     }
 }
@@ -89,13 +89,8 @@ impl search::Guest for Itunes {
             .iter()
             .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit), headers: vec![], body: None })
             .collect();
-        let bodies: Vec<Vec<u8>> = host_http::send_batch(&reqs)
-            .into_iter()
-            .map(|r| {
-                let resp = r.map_err(vehicoule_sdk::from_http_error)?;
-                api::status_error(resp.status).map_or(Ok(resp.body), Err)
-            })
-            .collect::<Result<_, Error>>()?;
+        let bodies: Vec<Vec<u8>> =
+            vehicoule_sdk::send_batch_bodies(&reqs, api::status_error).into_iter().collect::<Result<_, Error>>()?;
         let mut full_page = false;
         for body in &bodies {
             let parts = api::parse_results(body)?;
@@ -117,7 +112,7 @@ impl entity::Guest for Itunes {
     /// `lookup` has no cursor to page through more, so a page is always the whole thing (up
     /// to `LOOKUP_LIMIT`) and `next` is always `none`.
     fn fetch(target: EntityRef, region: String, _cursor: Option<String>) -> Result<EntityPage, Error> {
-        if !api::is_id(&target.id) {
+        if !vehicoule_sdk::is_decimal_id(&target.id) {
             return Err(Error::NotFound);
         }
         let page = |entity, tracks, albums| EntityPage { entity, tracks, albums, next: None };

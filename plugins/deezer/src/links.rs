@@ -2,9 +2,10 @@
 //! links that redirect to one. Scheme, host and path segments are matched in any case.
 
 use vehicoule_sdk::types::{EntityKind, EntityRef};
+use vehicoule_sdk::{is_decimal_id, split_url};
 
 pub fn parse_link(url: &str) -> Option<EntityRef> {
-    let (host, path) = split(url)?;
+    let (host, path) = split_url(url)?;
     if host != "www.deezer.com" && host != "deezer.com" {
         return None;
     }
@@ -22,27 +23,12 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
         "playlist" => EntityKind::Playlist,
         _ => return None,
     };
-    is_id(id).then(|| EntityRef { kind, id: id.to_string() })
+    is_decimal_id(id).then(|| EntityRef { kind, id: id.to_string() })
 }
 
 /// `link.deezer.com/s/…`: only the redirect tells what it names.
 pub fn is_short_link(url: &str) -> bool {
-    split(url).is_some_and(|(host, path)| host == "link.deezer.com" && path.strip_prefix("s/").is_some_and(|code| !code.is_empty()))
-}
-
-/// Deezer ids are decimal: anything else never reaches a URL.
-pub fn is_id(s: &str) -> bool {
-    !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
-}
-
-/// An http(s) URL's host, lowercased, and its path as given (without the leading `/`).
-fn split(url: &str) -> Option<(String, &str)> {
-    let (scheme, rest) = url.split_once("://")?;
-    if !scheme.eq_ignore_ascii_case("https") && !scheme.eq_ignore_ascii_case("http") {
-        return None;
-    }
-    let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
-    Some((host.to_ascii_lowercase(), path))
+    split_url(url).is_some_and(|(host, path)| host == "link.deezer.com" && path.strip_prefix("s/").is_some_and(|code| !code.is_empty()))
 }
 
 #[cfg(test)]
@@ -86,7 +72,7 @@ mod tests {
 
     #[test]
     fn ids_are_decimal() {
-        assert!(is_id("908622995"));
-        assert!(!is_id("") && !is_id("../1") && !is_id("1?x=2"));
+        assert!(is_decimal_id("908622995"));
+        assert!(!is_decimal_id("") && !is_decimal_id("../1") && !is_decimal_id("1?x=2"));
     }
 }

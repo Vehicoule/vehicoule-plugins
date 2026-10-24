@@ -5,6 +5,7 @@
 //! (`"track"`, `"collection"`, `"artist"`).
 
 use serde::Deserialize;
+use vehicoule_sdk::{is_decimal_id, json, split_url};
 use vehicoule_sdk::types::{Album, AlbumRef, Artist, ArtistRef, EntityKind, EntityRef, Error, Image, Track};
 
 /// A search response split by kind; `total` is iTunes' own `resultCount`, needed to tell a
@@ -35,10 +36,6 @@ struct Envelope {
     #[serde(rename = "resultCount")]
     result_count: u32,
     results: Vec<serde_json::Value>,
-}
-
-fn envelope(body: &[u8]) -> Result<Envelope, Error> {
-    serde_json::from_slice(body).map_err(|e| Error::Internal(e.to_string()))
 }
 
 // Only the fields in use; absent/malformed optional fields degrade gracefully. A missing
@@ -146,7 +143,7 @@ fn artist(a: ItArtist) -> Artist {
 /// Splits one response's `results` by `wrapperType`; an item that fails to deserialise into
 /// its own shape is skipped, not the whole response.
 pub fn parse_results(body: &[u8]) -> Result<SearchParts, Error> {
-    let env = envelope(body)?;
+    let env: Envelope = json(body)?;
     let mut parts = SearchParts { total: env.result_count, ..SearchParts::default() };
     for item in env.results {
         match item.get("wrapperType").and_then(|v| v.as_str()) {
@@ -173,7 +170,7 @@ pub fn parse_results(body: &[u8]) -> Result<SearchParts, Error> {
 
 /// A single track lookup (`lookup?id=<id>&entity=song`): the first (only) `"track"` item.
 pub fn parse_track(body: &[u8]) -> Result<Track, Error> {
-    let env = envelope(body)?;
+    let env: Envelope = json(body)?;
     env.results
         .into_iter()
         .find(|v| v.get("wrapperType").and_then(|v| v.as_str()) == Some("track"))
@@ -186,7 +183,7 @@ pub fn parse_track(body: &[u8]) -> Result<Track, Error> {
 /// every `"track"` item after it is a track, ordered by disc then track number so a
 /// multi-disc album doesn't interleave its discs.
 pub fn parse_album_tracks(body: &[u8]) -> Result<(Album, Vec<Track>), Error> {
-    let env = envelope(body)?;
+    let env: Envelope = json(body)?;
     let mut found_album = None;
     let mut tracks: Vec<(Option<u32>, Option<u32>, Track)> = vec![];
     for item in env.results {
@@ -211,7 +208,7 @@ pub fn parse_album_tracks(body: &[u8]) -> Result<(Album, Vec<Track>), Error> {
 /// An artist lookup (`lookup?id=<id>&entity=album`): the one `"artist"` item, followed by its
 /// albums as `"collection"` items, in the order iTunes returns them.
 pub fn parse_artist_albums(body: &[u8]) -> Result<(Artist, Vec<Album>), Error> {
-    let env = envelope(body)?;
+    let env: Envelope = json(body)?;
     let mut found_artist = None;
     let mut albums = vec![];
     for item in env.results {
@@ -238,7 +235,7 @@ pub fn parse_artist_albums(body: &[u8]) -> Result<(Artist, Vec<Album>), Error> {
 /// any case; a playlist link (and anything else iTunes does not serve) is `None`, not an
 /// error.
 pub fn parse_link(url: &str) -> Option<EntityRef> {
-    let (host, rest) = split(url)?;
+    let (host, rest) = split_url(url)?;
     if host != "music.apple.com" && host != "itunes.apple.com" && host != "geo.music.apple.com" {
         return None;
     }
@@ -253,35 +250,20 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
         return None;
     }
     // Legacy `itunes.apple.com` links carry `id<digits>`; current `music.apple.com` ones don't.
-    let id = raw_id.strip_prefix("id").filter(|d| is_id(d)).unwrap_or(raw_id);
-    if !is_id(id) {
+    let id = raw_id.strip_prefix("id").filter(|d| is_decimal_id(d)).unwrap_or(raw_id);
+    if !is_decimal_id(id) {
         return None;
     }
     match kind {
         "song" => Some(EntityRef { kind: EntityKind::Track, id: id.to_string() }),
         "album" => match query.split('&').find_map(|p| p.strip_prefix("i=")) {
-            Some(track_id) => is_id(track_id).then(|| EntityRef { kind: EntityKind::Track, id: track_id.to_string() }),
+            Some(track_id) => is_decimal_id(track_id).then(|| EntityRef { kind: EntityKind::Track, id: track_id.to_string() }),
             None => Some(EntityRef { kind: EntityKind::Album, id: id.to_string() }),
         },
         "artist" => Some(EntityRef { kind: EntityKind::Artist, id: id.to_string() }),
         // Playlists (and anything else) are not served by this API.
         _ => None,
     }
-}
-
-/// iTunes ids are decimal: anything else never reaches a URL.
-pub fn is_id(s: &str) -> bool {
-    !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
-}
-
-/// An http(s) URL's host, lowercased, and its path as given (without the leading `/`).
-fn split(url: &str) -> Option<(String, &str)> {
-    let (scheme, rest) = url.split_once("://")?;
-    if !scheme.eq_ignore_ascii_case("https") && !scheme.eq_ignore_ascii_case("http") {
-        return None;
-    }
-    let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
-    Some((host.to_ascii_lowercase(), path))
 }
 
 #[cfg(test)]

@@ -84,8 +84,20 @@ fn get_all(urls: Vec<String>) -> Result<Vec<Vec<u8>>, Error> {
     send_all(urls.into_iter().map(get_request).collect())
 }
 
+/// A batch's responses as an array: one per request, or an internal error (never a panic on
+/// an index).
+fn responses<T, const N: usize>(v: Vec<T>) -> Result<[T; N], Error> {
+    v.try_into().map_err(|_| Error::Internal("one response per request".into()))
+}
+
+/// GETs every URL in one host batch, failing on the first error: one body per URL.
+fn get_n<const N: usize>(urls: [String; N]) -> Result<[Vec<u8>; N], Error> {
+    responses(get_all(urls.into())?)
+}
+
 fn get(url: String) -> Result<Vec<u8>, Error> {
-    Ok(get_all(vec![url])?.remove(0))
+    let [body] = get_n([url])?;
+    Ok(body)
 }
 
 fn artist_albums_url(id: &str, index: &str) -> String {
@@ -164,12 +176,12 @@ impl entity::Guest for Deezer {
             }
             EntityKind::Album => {
                 // `limit=1`: the album without its embedded track list, which is paged below.
-                let b = get_all(vec![
+                let [a, t] = get_n([
                     format!("{API}/album/{id}?limit=1"),
                     format!("{API}/album/{id}/tracks?index={index}&limit={TRACKS_PAGE}"),
                 ])?;
-                let album = api::parse_album(&b[0])?;
-                let (mut tracks, next) = api::parse_tracks(&b[1])?;
+                let album = api::parse_album(&a)?;
+                let (mut tracks, next) = api::parse_tracks(&t)?;
                 // An album's own track list names neither the album nor its cover.
                 for t in &mut tracks {
                     t.album.get_or_insert_with(|| AlbumRef { id: Some(album.id.clone()), title: album.title.clone() });
@@ -184,27 +196,30 @@ impl entity::Guest for Deezer {
                 if cursor.is_none() {
                     urls.push(format!("{API}/artist/{id}/top?limit={TOP_TRACKS}"));
                 }
-                let b = get_all(urls)?;
-                let artist = api::parse_artist(&b[0])?;
-                let (mut albums, next) = api::parse_albums(&b[1])?;
+                let mut b = get_all(urls)?;
+                // The top tracks come last, on the first page only.
+                let top = if cursor.is_none() { b.pop() } else { None };
+                let [a, al] = responses(b)?;
+                let artist = api::parse_artist(&a)?;
+                let (mut albums, next) = api::parse_albums(&al)?;
                 // An artist's album list does not repeat the artist.
                 for a in albums.iter_mut().filter(|a| a.artists.is_empty()) {
                     a.artists.push(ArtistRef { id: Some(artist.id.clone()), name: artist.name.clone() });
                 }
-                let tracks = match b.get(2) {
-                    Some(top) => api::parse_tracks(top)?.0,
+                let tracks = match top {
+                    Some(top) => api::parse_tracks(&top)?.0,
                     None => vec![],
                 };
                 Ok(page(Entity::Artist(artist), tracks, albums, next))
             }
             EntityKind::Playlist => {
                 // `limit=1`: the playlist without its embedded tracks (up to 400), paged below.
-                let b = get_all(vec![
+                let [p, t] = get_n([
                     format!("{API}/playlist/{id}?limit=1"),
                     format!("{API}/playlist/{id}/tracks?index={index}&limit={TRACKS_PAGE}"),
                 ])?;
-                let playlist = api::parse_playlist(&b[0])?;
-                let (tracks, next) = api::parse_tracks(&b[1])?;
+                let playlist = api::parse_playlist(&p)?;
+                let (tracks, next) = api::parse_tracks(&t)?;
                 Ok(page(Entity::Playlist(playlist), tracks, vec![], next))
             }
         }
@@ -257,7 +272,8 @@ impl radio::Guest for Deezer {
         let artist = track.artists.first().and_then(|a| a.id.clone()).ok_or(Error::NotFound)?;
         // A different radio on every call: never from the host's cache.
         let radio = uncached(get_request(format!("{API}/artist/{artist}/radio?limit={limit}")));
-        let (mut tracks, _) = api::parse_tracks(&send_all(vec![radio])?.remove(0))?;
+        let [body] = responses(send_all(vec![radio])?)?;
+        let (mut tracks, _) = api::parse_tracks(&body)?;
         tracks.truncate(limit as usize);
         Ok(tracks)
     }
@@ -271,13 +287,11 @@ fn chart_url(genre: &str) -> String {
 impl browse::Guest for Deezer {
     /// One batch; only the genres are required (see `api::categories`).
     fn categories(_region: String) -> Result<Vec<Category>, Error> {
-        let [genres, top, pick]: [_; 3] = get_each(vec![
+        let [genres, top, pick] = responses(get_each(vec![
             format!("{API}/genre"),
             format!("{API}/chart/0/tracks?limit=1"),
             format!("{API}/editorial/0/selection"),
-        ])
-        .try_into()
-        .map_err(|_| Error::Internal("one response per request".into()))?;
+        ]))?;
         api::categories(&genres?, top, pick)
     }
 
@@ -290,12 +304,12 @@ impl browse::Guest for Deezer {
             CategoryId::Chart(g) => (api::TOP.into(), api::parse_chart(&get(chart_url(g))?)?),
             // The genre's name from the list `categories` fetched (likely in the host's cache).
             CategoryId::Genre(g) => {
-                let b = get_all(vec![format!("{API}/genre"), chart_url(g)])?;
-                let genre = api::parse_genres(&b[0])?
+                let [genres, chart] = get_n([format!("{API}/genre"), chart_url(g)])?;
+                let genre = api::parse_genres(&genres)?
                     .into_iter()
                     .find(|c| c.id == id)
                     .ok_or(Error::NotFound)?;
-                (genre.title, api::parse_chart(&b[1])?)
+                (genre.title, api::parse_chart(&chart)?)
             }
             CategoryId::Selection(g) => (
                 api::SELECTION.into(),
@@ -314,15 +328,31 @@ impl browse::Guest for Deezer {
         if !is_decimal_id(&artist_id) {
             return Err(Error::NotFound);
         }
-        let mut b = get_all(vec![
+        let [artist, first] = get_n([
             format!("{API}/artist/{artist_id}"),
             artist_albums_url(&artist_id, "0"),
         ])?;
-        let first = b.remove(1);
-        api::releases(&b[0], first, RELEASE_PAGES, |index| {
+        api::releases(&artist, first, RELEASE_PAGES, |index| {
             get(artist_albums_url(&artist_id, index))
         })
     }
 }
 
 export!(Deezer);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A batch that comes back short (or long) is an internal error, never a panic on an index.
+    #[test]
+    fn a_batch_needs_one_response_per_request() {
+        let short: Result<[u8; 2], Error> = responses(vec![1]);
+        assert!(matches!(short, Err(Error::Internal(m)) if m == "one response per request"));
+        let long: Result<[u8; 1], Error> = responses(vec![1, 2]);
+        assert!(matches!(long, Err(Error::Internal(_))));
+        let none: Result<[u8; 1], Error> = responses(vec![]);
+        assert!(matches!(none, Err(Error::Internal(_))));
+        assert!(matches!(responses::<u8, 2>(vec![1, 2]), Ok([1, 2])));
+    }
+}

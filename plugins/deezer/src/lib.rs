@@ -38,12 +38,18 @@ const RELEASE_PAGES: usize = 4;
 struct Deezer;
 
 fn get_request(url: String) -> Request {
-    Request { method: Method::Get, url, headers: vec![], body: None }
+    Request {
+        method: Method::Get,
+        url,
+        headers: vec![],
+        body: None,
+    }
 }
 
 /// Past the host's HTTP cache, both ways (no lookup, no store).
 fn uncached(mut req: Request) -> Request {
-    req.headers.push(("cache-control".into(), "no-cache".into()));
+    req.headers
+        .push(("cache-control".into(), "no-cache".into()));
     req
 }
 
@@ -62,7 +68,10 @@ fn send_each(reqs: Vec<Request>) -> Vec<Result<Vec<u8>, Error>> {
         .collect();
     if !limited.is_empty() {
         let retry: Vec<Request> = limited.iter().map(|&i| uncached(reqs[i].clone())).collect();
-        for (i, body) in limited.into_iter().zip(send_batch_bodies(&retry, status_error)) {
+        for (i, body) in limited
+            .into_iter()
+            .zip(send_batch_bodies(&retry, status_error))
+        {
             bodies[i] = body;
         }
     }
@@ -87,7 +96,8 @@ fn get_all(urls: Vec<String>) -> Result<Vec<Vec<u8>>, Error> {
 /// A batch's responses as an array: one per request, or an internal error (never a panic on
 /// an index).
 fn responses<T, const N: usize>(v: Vec<T>) -> Result<[T; N], Error> {
-    v.try_into().map_err(|_| Error::Internal("one response per request".into()))
+    v.try_into()
+        .map_err(|_| Error::Internal("one response per request".into()))
 }
 
 /// GETs every URL in one host batch, failing on the first error: one body per URL.
@@ -114,7 +124,10 @@ fn index(cursor: Option<&str>) -> Result<&str, Error> {
 }
 
 fn search_url(kind: &str, q: &str, limit: &str, index: &str) -> String {
-    format!("{API}/search/{kind}?{}", query(&[("q", q), ("limit", limit), ("index", index)]))
+    format!(
+        "{API}/search/{kind}?{}",
+        query(&[("q", q), ("limit", limit), ("index", index)])
+    )
 }
 
 impl search::Guest for Deezer {
@@ -122,7 +135,11 @@ impl search::Guest for Deezer {
     /// `index`, so their next index is shared.
     fn search(req: search::SearchRequest) -> Result<search::SearchResults, Error> {
         use EntityKind::*;
-        let kinds = if req.kinds.is_empty() { vec![Track, Album, Artist, Playlist] } else { req.kinds };
+        let kinds = if req.kinds.is_empty() {
+            vec![Track, Album, Artist, Playlist]
+        } else {
+            req.kinds
+        };
         let (limit, index) = (req.limit.to_string(), index(req.cursor.as_deref())?);
         let path = |k: &EntityKind| match k {
             Track => "track",
@@ -130,8 +147,19 @@ impl search::Guest for Deezer {
             Artist => "artist",
             Playlist => "playlist",
         };
-        let bodies = get_all(kinds.iter().map(|k| search_url(path(k), &req.query, &limit, index)).collect())?;
-        let mut out = search::SearchResults { tracks: vec![], albums: vec![], artists: vec![], playlists: vec![], next: None };
+        let bodies = get_all(
+            kinds
+                .iter()
+                .map(|k| search_url(path(k), &req.query, &limit, index))
+                .collect(),
+        )?;
+        let mut out = search::SearchResults {
+            tracks: vec![],
+            albums: vec![],
+            artists: vec![],
+            playlists: vec![],
+            next: None,
+        };
         for (kind, body) in kinds.iter().zip(&bodies) {
             let next = match kind {
                 Track => {
@@ -163,12 +191,21 @@ impl search::Guest for Deezer {
 
 impl entity::Guest for Deezer {
     /// The region is not sent: Deezer locates the caller by IP.
-    fn fetch(target: EntityRef, _region: String, cursor: Option<String>) -> Result<EntityPage, Error> {
+    fn fetch(
+        target: EntityRef,
+        _region: String,
+        cursor: Option<String>,
+    ) -> Result<EntityPage, Error> {
         if !is_decimal_id(&target.id) {
             return Err(Error::NotFound);
         }
         let (id, index) = (&target.id, index(cursor.as_deref())?);
-        let page = |entity, tracks, albums, next| EntityPage { entity, tracks, albums, next };
+        let page = |entity, tracks, albums, next| EntityPage {
+            entity,
+            tracks,
+            albums,
+            next,
+        };
         match target.kind {
             EntityKind::Track => {
                 let track = api::parse_track(&get(format!("{API}/track/{id}"))?)?;
@@ -184,7 +221,10 @@ impl entity::Guest for Deezer {
                 let (mut tracks, next) = api::parse_tracks(&t)?;
                 // An album's own track list names neither the album nor its cover.
                 for t in &mut tracks {
-                    t.album.get_or_insert_with(|| AlbumRef { id: Some(album.id.clone()), title: album.title.clone() });
+                    t.album.get_or_insert_with(|| AlbumRef {
+                        id: Some(album.id.clone()),
+                        title: album.title.clone(),
+                    });
                     if t.artwork.is_empty() {
                         t.artwork = album.artwork.clone();
                     }
@@ -204,7 +244,10 @@ impl entity::Guest for Deezer {
                 let (mut albums, next) = api::parse_albums(&al)?;
                 // An artist's album list does not repeat the artist.
                 for a in albums.iter_mut().filter(|a| a.artists.is_empty()) {
-                    a.artists.push(ArtistRef { id: Some(artist.id.clone()), name: artist.name.clone() });
+                    a.artists.push(ArtistRef {
+                        id: Some(artist.id.clone()),
+                        name: artist.name.clone(),
+                    });
                 }
                 let tracks = match top {
                     Some(top) => api::parse_tracks(&top)?.0,
@@ -236,7 +279,9 @@ impl entity::Guest for Deezer {
             return Ok(None);
         }
         let url = match url.get(..7) {
-            Some(scheme) if scheme.eq_ignore_ascii_case("http://") => format!("https://{}", &url[7..]),
+            Some(scheme) if scheme.eq_ignore_ascii_case("http://") => {
+                format!("https://{}", &url[7..])
+            }
             _ => url,
         };
         let resp = host_http::send(&get_request(url)).map_err(from_http_error)?;
@@ -252,16 +297,22 @@ impl radio::Guest for Deezer {
     /// longer knows) the first search match.
     fn radio(seed: TrackQuery, _region: String, limit: u32) -> Result<Vec<Track>, Error> {
         let by_id = match seed.id.as_deref().filter(|id| is_decimal_id(id)) {
-            Some(id) => match get(format!("{API}/track/{id}")).and_then(|body| api::parse_track(&body)) {
-                Err(Error::NotFound) => None,
-                found => Some(found?),
-            },
+            Some(id) => {
+                match get(format!("{API}/track/{id}")).and_then(|body| api::parse_track(&body)) {
+                    Err(Error::NotFound) => None,
+                    found => Some(found?),
+                }
+            }
             None => None,
         };
         let track = match by_id {
             Some(track) => track,
             None => {
-                let q = format!("{} {}", seed.artists.first().map_or("", String::as_str), seed.title);
+                let q = format!(
+                    "{} {}",
+                    seed.artists.first().map_or("", String::as_str),
+                    seed.title
+                );
                 if q.trim().is_empty() {
                     return Err(Error::NotFound);
                 }
@@ -269,9 +320,15 @@ impl radio::Guest for Deezer {
                 found.into_iter().next().ok_or(Error::NotFound)?
             }
         };
-        let artist = track.artists.first().and_then(|a| a.id.clone()).ok_or(Error::NotFound)?;
+        let artist = track
+            .artists
+            .first()
+            .and_then(|a| a.id.clone())
+            .ok_or(Error::NotFound)?;
         // A different radio on every call: never from the host's cache.
-        let radio = uncached(get_request(format!("{API}/artist/{artist}/radio?limit={limit}")));
+        let radio = uncached(get_request(format!(
+            "{API}/artist/{artist}/radio?limit={limit}"
+        )));
         let [body] = responses(send_all(vec![radio])?)?;
         let (mut tracks, _) = api::parse_tracks(&body)?;
         tracks.truncate(limit as usize);

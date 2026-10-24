@@ -36,7 +36,8 @@ mod tests {
     /// host-side test).
     #[test]
     fn manifest_asks_for_descriptive_user_agent() {
-        let manifest: serde_json::Value = serde_json::from_str(include_str!("../manifest.json")).unwrap();
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../manifest.json")).unwrap();
         assert_eq!(manifest["descriptive_user_agent"], true);
     }
 }

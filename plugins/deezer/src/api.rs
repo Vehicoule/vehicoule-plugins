@@ -343,18 +343,33 @@ struct Named {
 fn artwork(xl: Option<String>, medium: Option<String>) -> Vec<Image> {
     [(xl, 1000), (medium, 250)]
         .into_iter()
-        .filter_map(|(url, px)| url.filter(|u| !u.is_empty()).map(|url| Image { url, width: Some(px), height: Some(px) }))
+        .filter_map(|(url, px)| {
+            url.filter(|u| !u.is_empty()).map(|url| Image {
+                url,
+                width: Some(px),
+                height: Some(px),
+            })
+        })
         .collect()
 }
 
 fn artist_ref(a: DzArtist) -> ArtistRef {
-    ArtistRef { id: Some(a.id.to_string()), name: a.name }
+    ArtistRef {
+        id: Some(a.id.to_string()),
+        name: a.name,
+    }
 }
 
 /// The artwork is the album's cover, when the album is given.
 fn track(t: DzTrack) -> Track {
     let (album, artwork) = match t.album {
-        Some(a) => (Some(AlbumRef { id: Some(a.id.to_string()), title: a.title }), artwork(a.cover_xl, a.cover_medium)),
+        Some(a) => (
+            Some(AlbumRef {
+                id: Some(a.id.to_string()),
+                title: a.title,
+            }),
+            artwork(a.cover_xl, a.cover_medium),
+        ),
         None => (None, vec![]),
     };
     Track {
@@ -362,7 +377,10 @@ fn track(t: DzTrack) -> Track {
         title: t.title,
         artists: vec![artist_ref(t.artist)],
         album,
-        duration_ms: t.duration.filter(|&s| s > 0).map(|s| s.saturating_mul(1000)),
+        duration_ms: t
+            .duration
+            .filter(|&s| s > 0)
+            .map(|s| s.saturating_mul(1000)),
         isrc: t.isrc.filter(|i| !i.is_empty()),
         explicit: t.explicit_lyrics,
         artwork,
@@ -374,14 +392,21 @@ fn album(a: DzAlbum) -> Album {
         id: a.id.to_string(),
         title: a.title,
         artists: a.artist.map(artist_ref).into_iter().collect(),
-        year: a.release_date.and_then(|d| d.get(..4)?.parse().ok()).filter(|&y| y > 0),
+        year: a
+            .release_date
+            .and_then(|d| d.get(..4)?.parse().ok())
+            .filter(|&y| y > 0),
         track_count: a.nb_tracks,
         artwork: artwork(a.cover_xl, a.cover_medium),
     }
 }
 
 fn artist(a: DzArtist) -> Artist {
-    Artist { id: a.id.to_string(), name: a.name, artwork: artwork(a.picture_xl, a.picture_medium) }
+    Artist {
+        id: a.id.to_string(),
+        name: a.name,
+        artwork: artwork(a.picture_xl, a.picture_medium),
+    }
 }
 
 fn playlist(p: DzPlaylist) -> Playlist {
@@ -406,11 +431,16 @@ mod tests {
 
     macro_rules! fixture {
         ($path:literal) => {
-            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/deezer/", $path))
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../tests/fixtures/deezer/",
+                $path
+            ))
         };
     }
 
-    const COVER: &str = "https://cdn-images.dzcdn.net/images/cover/311bba0fc112d15f72c8b5a65f0456c1";
+    const COVER: &str =
+        "https://cdn-images.dzcdn.net/images/cover/311bba0fc112d15f72c8b5a65f0456c1";
 
     #[test]
     fn search_results_parse_with_cursor() {
@@ -419,10 +449,19 @@ mod tests {
         let t = &tracks[0];
         assert_eq!(t.id, "67238732");
         assert_eq!(t.title, "Instant Crush (feat. Julian Casablancas)");
-        assert_eq!(dbg(&t.artists), dbg([ArtistRef { id: Some("27".into()), name: "Daft Punk".into() }]));
+        assert_eq!(
+            dbg(&t.artists),
+            dbg([ArtistRef {
+                id: Some("27".into()),
+                name: "Daft Punk".into()
+            }])
+        );
         assert_eq!(
             dbg(&t.album),
-            dbg(Some(AlbumRef { id: Some("6575789".into()), title: "Random Access Memories".into() }))
+            dbg(Some(AlbumRef {
+                id: Some("6575789".into()),
+                title: "Random Access Memories".into()
+            }))
         );
         assert_eq!(t.duration_ms, Some(337_000));
         assert_eq!(t.isrc.as_deref(), Some("USQX91300105"));
@@ -430,27 +469,47 @@ mod tests {
         assert_eq!(
             dbg(&t.artwork),
             dbg([
-                Image { url: format!("{COVER}/1000x1000-000000-80-0-0.jpg"), width: Some(1000), height: Some(1000) },
-                Image { url: format!("{COVER}/250x250-000000-80-0-0.jpg"), width: Some(250), height: Some(250) },
+                Image {
+                    url: format!("{COVER}/1000x1000-000000-80-0-0.jpg"),
+                    width: Some(1000),
+                    height: Some(1000)
+                },
+                Image {
+                    url: format!("{COVER}/250x250-000000-80-0-0.jpg"),
+                    width: Some(250),
+                    height: Some(250)
+                },
             ])
         );
 
         let (albums, next) = parse_albums(fixture!("search/search_album.json")).unwrap();
         assert_eq!((albums.len(), next.as_deref()), (2, Some("2")));
         let a = &albums[0];
-        assert_eq!((a.id.as_str(), a.title.as_str(), a.track_count), ("6575789", "Random Access Memories", Some(13)));
+        assert_eq!(
+            (a.id.as_str(), a.title.as_str(), a.track_count),
+            ("6575789", "Random Access Memories", Some(13))
+        );
         assert_eq!(a.artists[0].name, "Daft Punk");
 
         let (artists, next) = parse_artists(fixture!("search/search_artist.json")).unwrap();
         assert_eq!((artists.len(), next.as_deref()), (2, Some("2")));
-        assert_eq!((artists[0].id.as_str(), artists[0].name.as_str()), ("27", "Daft Punk"));
+        assert_eq!(
+            (artists[0].id.as_str(), artists[0].name.as_str()),
+            ("27", "Daft Punk")
+        );
         assert_eq!(artists[0].artwork[0].width, Some(1000));
 
         let (playlists, next) = parse_playlists(fixture!("search/search_playlist.json")).unwrap();
         assert_eq!((playlists.len(), next.as_deref()), (2, Some("2")));
         let p = &playlists[0];
-        assert_eq!((p.id.as_str(), p.title.as_str(), p.track_count), ("6423436964", "French Touch Essentials", Some(50)));
-        assert_eq!(p.owner.as_deref(), Some("Laeti - Deezer Dance & EDM Editor"));
+        assert_eq!(
+            (p.id.as_str(), p.title.as_str(), p.track_count),
+            ("6423436964", "French Touch Essentials", Some(50))
+        );
+        assert_eq!(
+            p.owner.as_deref(),
+            Some("Laeti - Deezer Dance & EDM Editor")
+        );
     }
 
     #[test]
@@ -465,7 +524,10 @@ mod tests {
     fn album_tracks_carry_isrc_when_present() {
         let (tracks, _) = parse_tracks(fixture!("entity/album_tracks.json")).unwrap();
         assert_eq!(tracks.len(), 14);
-        assert_eq!((tracks[0].title.as_str(), tracks[0].isrc.as_deref()), ("One More Time", Some("GBDUW0000053")));
+        assert_eq!(
+            (tracks[0].title.as_str(), tracks[0].isrc.as_deref()),
+            ("One More Time", Some("GBDUW0000053"))
+        );
         // No `album` object in an album's own track list: the caller fills it in.
         assert!(tracks[0].album.is_none() && tracks[0].artwork.is_empty());
         // Radio tracks come without an ISRC.
@@ -481,13 +543,26 @@ mod tests {
         assert_eq!(dbg(deezer_error(quota)), dbg(Some(Error::RateLimited)));
         let busy = br#"{"error":{"type":"Exception","message":"Service busy","code":700}}"#;
         assert_eq!(dbg(deezer_error(busy)), dbg(Some(Error::RateLimited)));
-        let other = br#"{"error":{"type":"ParameterException","message":"Wrong parameter","code":500}}"#;
-        assert_eq!(dbg(deezer_error(other)), dbg(Some(Error::Internal("deezer 500".into()))));
+        let other =
+            br#"{"error":{"type":"ParameterException","message":"Wrong parameter","code":500}}"#;
+        assert_eq!(
+            dbg(deezer_error(other)),
+            dbg(Some(Error::Internal("deezer 500".into())))
+        );
         assert!(deezer_error(fixture!("search/search_track.json")).is_none());
         // Checked before the data is parsed, by every parser.
-        assert_eq!(dbg(parse_tracks(quota)), dbg(Err::<(), _>(Error::RateLimited)));
-        assert_eq!(dbg(parse_track(not_found)), dbg(Err::<(), _>(Error::NotFound)));
-        assert_eq!(dbg(parse_playlist(not_found)), dbg(Err::<(), _>(Error::NotFound)));
+        assert_eq!(
+            dbg(parse_tracks(quota)),
+            dbg(Err::<(), _>(Error::RateLimited))
+        );
+        assert_eq!(
+            dbg(parse_track(not_found)),
+            dbg(Err::<(), _>(Error::NotFound))
+        );
+        assert_eq!(
+            dbg(parse_playlist(not_found)),
+            dbg(Err::<(), _>(Error::NotFound))
+        );
     }
 
     #[test]
@@ -496,19 +571,40 @@ mod tests {
             {"id":3,"title":null,"artist":{"id":2,"name":"A"}},{"id":"x"}],
             "next":"https://api.deezer.com/search/track?q=a&limit=3&index=3"}"#;
         let (tracks, next) = parse_tracks(body).unwrap();
-        assert_eq!(tracks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>(), ["Good"]);
+        assert_eq!(
+            tracks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>(),
+            ["Good"]
+        );
         assert_eq!(next.as_deref(), Some("3"));
     }
 
     #[test]
     fn single_entities_parse() {
         let a = parse_album(fixture!("entity/album.json")).unwrap();
-        assert_eq!((a.id.as_str(), a.title.as_str(), a.year, a.track_count), ("302127", "Discovery", Some(2001), Some(14)));
+        assert_eq!(
+            (a.id.as_str(), a.title.as_str(), a.year, a.track_count),
+            ("302127", "Discovery", Some(2001), Some(14))
+        );
         let p = parse_playlist(fixture!("playlist/playlist.json")).unwrap();
-        assert_eq!((p.title.as_str(), p.owner.as_deref(), p.track_count), ("Musique française années 80", Some("Digster France"), Some(102)));
-        assert!(p.description.as_deref().unwrap().starts_with("Le meilleur de la pop française"));
+        assert_eq!(
+            (p.title.as_str(), p.owner.as_deref(), p.track_count),
+            (
+                "Musique française années 80",
+                Some("Digster France"),
+                Some(102)
+            )
+        );
+        assert!(
+            p.description
+                .as_deref()
+                .unwrap()
+                .starts_with("Le meilleur de la pop française")
+        );
         let t = parse_track(fixture!("radio/track.json")).unwrap();
-        assert_eq!((t.id.as_str(), t.artists[0].id.as_deref()), ("3135556", Some("27")));
+        assert_eq!(
+            (t.id.as_str(), t.artists[0].id.as_deref()),
+            ("3135556", Some("27"))
+        );
     }
 
     #[test]
@@ -516,7 +612,14 @@ mod tests {
         let body = br#"{"data":[{"id":1,"name":"A","picture_xl":"","picture_medium":"https://e.dzcdn.net/m.jpg"},
             {"id":2,"name":"B","picture_xl":null}]}"#;
         let (artists, _) = parse_artists(body).unwrap();
-        assert_eq!(dbg(&artists[0].artwork), dbg([Image { url: "https://e.dzcdn.net/m.jpg".into(), width: Some(250), height: Some(250) }]));
+        assert_eq!(
+            dbg(&artists[0].artwork),
+            dbg([Image {
+                url: "https://e.dzcdn.net/m.jpg".into(),
+                width: Some(250),
+                height: Some(250)
+            }])
+        );
         assert!(artists[1].artwork.is_empty());
     }
 

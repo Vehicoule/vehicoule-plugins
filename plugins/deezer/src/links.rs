@@ -9,10 +9,15 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
     if host != "www.deezer.com" && host != "deezer.com" {
         return None;
     }
-    let path = path.split(['?', '#']).next()?.trim_end_matches('/').to_ascii_lowercase();
+    let path = path
+        .split(['?', '#'])
+        .next()?
+        .trim_end_matches('/')
+        .to_ascii_lowercase();
     let mut parts: Vec<&str> = path.split('/').collect();
     // The language: `fr/`, `en/`…
-    if parts.len() == 3 && parts[0].len() == 2 && parts[0].bytes().all(|b| b.is_ascii_alphabetic()) {
+    if parts.len() == 3 && parts[0].len() == 2 && parts[0].bytes().all(|b| b.is_ascii_alphabetic())
+    {
         parts.remove(0);
     }
     let [kind, id] = parts[..] else { return None };
@@ -23,12 +28,17 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
         "playlist" => EntityKind::Playlist,
         _ => return None,
     };
-    is_decimal_id(id).then(|| EntityRef { kind, id: id.to_string() })
+    is_decimal_id(id).then(|| EntityRef {
+        kind,
+        id: id.to_string(),
+    })
 }
 
 /// `link.deezer.com/s/…`: only the redirect tells what it names.
 pub fn is_short_link(url: &str) -> bool {
-    split_url(url).is_some_and(|(host, path)| host == "link.deezer.com" && path.strip_prefix("s/").is_some_and(|code| !code.is_empty()))
+    split_url(url).is_some_and(|(host, path)| {
+        host == "link.deezer.com" && path.strip_prefix("s/").is_some_and(|code| !code.is_empty())
+    })
 }
 
 #[cfg(test)]
@@ -41,15 +51,39 @@ mod tests {
 
     #[test]
     fn links_are_recognised() {
-        assert_eq!(link("https://www.deezer.com/fr/playlist/908622995"), Some((EntityKind::Playlist, "908622995".into())));
-        assert_eq!(link("https://www.deezer.com/album/302127"), Some((EntityKind::Album, "302127".into())));
-        assert_eq!(link("https://www.deezer.com/en/track/3135556?utm_source=deezer"), Some((EntityKind::Track, "3135556".into())));
-        assert_eq!(link("http://www.deezer.com/artist/27/"), Some((EntityKind::Artist, "27".into())));
-        assert_eq!(link("https://www.deezer.com/fr/playlist/908622995#x"), Some((EntityKind::Playlist, "908622995".into())));
+        assert_eq!(
+            link("https://www.deezer.com/fr/playlist/908622995"),
+            Some((EntityKind::Playlist, "908622995".into()))
+        );
+        assert_eq!(
+            link("https://www.deezer.com/album/302127"),
+            Some((EntityKind::Album, "302127".into()))
+        );
+        assert_eq!(
+            link("https://www.deezer.com/en/track/3135556?utm_source=deezer"),
+            Some((EntityKind::Track, "3135556".into()))
+        );
+        assert_eq!(
+            link("http://www.deezer.com/artist/27/"),
+            Some((EntityKind::Artist, "27".into()))
+        );
+        assert_eq!(
+            link("https://www.deezer.com/fr/playlist/908622995#x"),
+            Some((EntityKind::Playlist, "908622995".into()))
+        );
         // Without `www`, and any case in the scheme, the host and the language.
-        assert_eq!(link("https://deezer.com/fr/album/302127"), Some((EntityKind::Album, "302127".into())));
-        assert_eq!(link("HTTPS://WWW.Deezer.COM/FR/playlist/908622995"), Some((EntityKind::Playlist, "908622995".into())));
-        assert_eq!(link("Http://Deezer.com/track/3135556"), Some((EntityKind::Track, "3135556".into())));
+        assert_eq!(
+            link("https://deezer.com/fr/album/302127"),
+            Some((EntityKind::Album, "302127".into()))
+        );
+        assert_eq!(
+            link("HTTPS://WWW.Deezer.COM/FR/playlist/908622995"),
+            Some((EntityKind::Playlist, "908622995".into()))
+        );
+        assert_eq!(
+            link("Http://Deezer.com/track/3135556"),
+            Some((EntityKind::Track, "3135556".into()))
+        );
         // Another domain, another kind, a non-numeric id, extra segments.
         assert_eq!(link("https://open.spotify.com/album/302127"), None);
         assert_eq!(link("https://www.deezer.com.evil.com/album/302127"), None);
@@ -61,10 +95,14 @@ mod tests {
 
     #[test]
     fn short_links_are_recognised() {
-        assert!(is_short_link("https://link.deezer.com/s/34bMMRXCn45BPl52sk6ml"));
+        assert!(is_short_link(
+            "https://link.deezer.com/s/34bMMRXCn45BPl52sk6ml"
+        ));
         // Firebase Dynamic Links are gone: no longer followed.
         assert!(!is_short_link("https://deezer.page.link/ABCdef123"));
-        assert!(is_short_link("HTTPS://Link.Deezer.com/s/34bMMRXCn45BPl52sk6ml"));
+        assert!(is_short_link(
+            "HTTPS://Link.Deezer.com/s/34bMMRXCn45BPl52sk6ml"
+        ));
         assert!(!is_short_link("https://link.deezer.com/s/"));
         assert!(!is_short_link("https://link.deezer.com.evil.com/s/abc"));
         assert!(!is_short_link("https://www.deezer.com/album/302127"));

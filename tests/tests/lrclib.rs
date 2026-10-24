@@ -5,7 +5,14 @@ use plugin_host::{CallError, Capability};
 use tests::load;
 
 fn query(title: &str, artist: &str, album: Option<&str>, duration_ms: Option<u32>) -> TrackQuery {
-    TrackQuery { id: None, title: title.into(), artists: vec![artist.into()], album: album.map(Into::into), duration_ms, isrc: None }
+    TrackQuery {
+        id: None,
+        title: title.into(),
+        artists: vec![artist.into()],
+        album: album.map(Into::into),
+        duration_ms,
+        isrc: None,
+    }
 }
 
 #[tokio::test]
@@ -26,11 +33,24 @@ async fn get_returns_plain_and_synced() {
     let (host, plugin, _) = load("lrclib", "get");
     let track = query("Yesterday", "The Beatles", Some("Help!"), Some(126_000));
     let lyrics = host.lyrics(&plugin, track).await.unwrap();
-    assert!(lyrics.plain.unwrap().starts_with("Yesterday, all my troubles seemed so far away"));
+    assert!(
+        lyrics
+            .plain
+            .unwrap()
+            .starts_with("Yesterday, all my troubles seemed so far away")
+    );
     assert_eq!(lyrics.synced[0].start_ms, 5_060);
-    assert_eq!(lyrics.synced[0].text, "Yesterday, all my troubles seemed so far away");
+    assert_eq!(
+        lyrics.synced[0].text,
+        "Yesterday, all my troubles seemed so far away"
+    );
     // Sorted by time; every entry before the next starts no later than it.
-    assert!(lyrics.synced.windows(2).all(|w| w[0].start_ms <= w[1].start_ms));
+    assert!(
+        lyrics
+            .synced
+            .windows(2)
+            .all(|w| w[0].start_ms <= w[1].start_ms)
+    );
 }
 
 /// `GET /api/get` 404s (the recorded album doesn't match this exact track), so the plugin
@@ -39,9 +59,19 @@ async fn get_returns_plain_and_synced() {
 #[tokio::test]
 async fn search_fallback_matches_duration() {
     let (host, plugin, _) = load("lrclib", "search");
-    let track = query("Yesterday", "The Beatles", Some("WrongAlbumName"), Some(126_000));
+    let track = query(
+        "Yesterday",
+        "The Beatles",
+        Some("WrongAlbumName"),
+        Some(126_000),
+    );
     let lyrics = host.lyrics(&plugin, track).await.unwrap();
-    assert!(lyrics.plain.unwrap().starts_with("Yesterday, all my troubles seemed so far away"));
+    assert!(
+        lyrics
+            .plain
+            .unwrap()
+            .starts_with("Yesterday, all my troubles seemed so far away")
+    );
     assert_eq!(lyrics.synced[0].start_ms, 5_340);
 }
 
@@ -50,7 +80,12 @@ async fn search_fallback_matches_duration() {
 #[tokio::test]
 async fn search_fallback_skips_results_outside_duration() {
     let (host, plugin, _) = load("lrclib", "search");
-    let track = query("Yesterday", "The Beatles", Some("WrongAlbumName"), Some(128_000));
+    let track = query(
+        "Yesterday",
+        "The Beatles",
+        Some("WrongAlbumName"),
+        Some(128_000),
+    );
     let lyrics = host.lyrics(&plugin, track).await.unwrap();
     assert_eq!(lyrics.synced[0].start_ms, 5_060);
 }
@@ -59,7 +94,12 @@ async fn search_fallback_skips_results_outside_duration() {
 #[tokio::test]
 async fn search_fallback_without_duration_match_is_not_found() {
     let (host, plugin, _) = load("lrclib", "search");
-    let track = query("Yesterday", "The Beatles", Some("WrongAlbumName"), Some(200_000));
+    let track = query(
+        "Yesterday",
+        "The Beatles",
+        Some("WrongAlbumName"),
+        Some(200_000),
+    );
     let result = host.lyrics(&plugin, track).await;
     assert_eq!(result.unwrap_err(), CallError::NotFound);
 }
@@ -69,8 +109,12 @@ async fn search_fallback_without_duration_match_is_not_found() {
 #[tokio::test]
 async fn instrumental_is_not_found() {
     let (host, plugin, _) = load("lrclib", "instrumental");
-    let track = query("Rebel Rouser", "Duane Eddy", Some("Rebel Rouser"), Some(142_000));
+    let track = query(
+        "Rebel Rouser",
+        "Duane Eddy",
+        Some("Rebel Rouser"),
+        Some(142_000),
+    );
     let result = host.lyrics(&plugin, track).await;
     assert_eq!(result.unwrap_err(), CallError::NotFound);
 }
-

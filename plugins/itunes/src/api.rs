@@ -5,8 +5,10 @@
 //! (`"track"`, `"collection"`, `"artist"`).
 
 use serde::Deserialize;
+use vehicoule_sdk::types::{
+    Album, AlbumRef, Artist, ArtistRef, EntityKind, EntityRef, Error, Image, Track,
+};
 use vehicoule_sdk::{is_decimal_id, json, split_url};
-use vehicoule_sdk::types::{Album, AlbumRef, Artist, ArtistRef, EntityKind, EntityRef, Error, Image, Track};
 
 /// A search response split by kind; `total` is iTunes' own `resultCount`, needed to tell a
 /// full page (possibly more to fetch) from the last one.
@@ -97,15 +99,28 @@ struct ItArtist {
 fn artwork(url100: Option<String>) -> Vec<Image> {
     match url100.filter(|u| !u.is_empty()) {
         Some(u) => vec![
-            Image { url: big_artwork(&u), width: Some(1000), height: Some(1000) },
-            Image { url: u, width: Some(100), height: Some(100) },
+            Image {
+                url: big_artwork(&u),
+                width: Some(1000),
+                height: Some(1000),
+            },
+            Image {
+                url: u,
+                width: Some(100),
+                height: Some(100),
+            },
         ],
         None => vec![],
     }
 }
 
 fn track_artists(id: Option<i64>, name: Option<String>) -> Vec<ArtistRef> {
-    name.into_iter().map(|name| ArtistRef { id: id.map(|i| i.to_string()), name }).collect()
+    name.into_iter()
+        .map(|name| ArtistRef {
+            id: id.map(|i| i.to_string()),
+            name,
+        })
+        .collect()
 }
 
 fn track(t: ItTrack) -> Track {
@@ -113,9 +128,10 @@ fn track(t: ItTrack) -> Track {
         id: t.track_id.to_string(),
         title: t.track_name,
         artists: track_artists(t.artist_id, t.artist_name),
-        album: t
-            .collection_name
-            .map(|title| AlbumRef { id: t.collection_id.map(|i| i.to_string()), title }),
+        album: t.collection_name.map(|title| AlbumRef {
+            id: t.collection_id.map(|i| i.to_string()),
+            title,
+        }),
         duration_ms: t.track_time_millis,
         // The search/lookup API never carries an ISRC.
         isrc: None,
@@ -129,7 +145,10 @@ fn album(a: ItCollection) -> Album {
         id: a.collection_id.to_string(),
         title: a.collection_name,
         artists: track_artists(a.artist_id, a.artist_name),
-        year: a.release_date.and_then(|d| d.get(..4)?.parse().ok()).filter(|&y| y > 0),
+        year: a
+            .release_date
+            .and_then(|d| d.get(..4)?.parse().ok())
+            .filter(|&y| y > 0),
         track_count: a.track_count,
         artwork: artwork(a.artwork_url_100),
     }
@@ -137,14 +156,21 @@ fn album(a: ItCollection) -> Album {
 
 fn artist(a: ItArtist) -> Artist {
     // The artist search/lookup payload carries no artwork of its own.
-    Artist { id: a.artist_id.to_string(), name: a.artist_name, artwork: vec![] }
+    Artist {
+        id: a.artist_id.to_string(),
+        name: a.artist_name,
+        artwork: vec![],
+    }
 }
 
 /// Splits one response's `results` by `wrapperType`; an item that fails to deserialise into
 /// its own shape is skipped, not the whole response.
 pub fn parse_results(body: &[u8]) -> Result<SearchParts, Error> {
     let env: Envelope = json(body)?;
-    let mut parts = SearchParts { total: env.result_count, ..SearchParts::default() };
+    let mut parts = SearchParts {
+        total: env.result_count,
+        ..SearchParts::default()
+    };
     for item in env.results {
         match item.get("wrapperType").and_then(|v| v.as_str()) {
             Some("track") => {
@@ -202,7 +228,10 @@ pub fn parse_album_tracks(body: &[u8]) -> Result<(Album, Vec<Track>), Error> {
         }
     }
     tracks.sort_by_key(|(disc_number, track_number, _)| (*disc_number, *track_number));
-    Ok((found_album.ok_or(Error::NotFound)?, tracks.into_iter().map(|(_, _, t)| t).collect()))
+    Ok((
+        found_album.ok_or(Error::NotFound)?,
+        tracks.into_iter().map(|(_, _, t)| t).collect(),
+    ))
 }
 
 /// An artist lookup (`lookup?id=<id>&entity=album`): the one `"artist"` item, followed by its
@@ -243,24 +272,46 @@ pub fn parse_link(url: &str) -> Option<EntityRef> {
     // A fragment can trail either the bare path (no `?`) or the query string; strip it from
     // whichever one actually has it, before the query is read for `i=`.
     let query = query.split('#').next().unwrap_or(query);
-    let path = path.split('#').next().unwrap_or(path).trim_end_matches('/').to_ascii_lowercase();
+    let path = path
+        .split('#')
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches('/')
+        .to_ascii_lowercase();
     let parts: Vec<&str> = path.split('/').collect();
-    let [cc, kind, _slug, raw_id] = parts[..] else { return None };
+    let [cc, kind, _slug, raw_id] = parts[..] else {
+        return None;
+    };
     if cc.len() != 2 || !cc.bytes().all(|b| b.is_ascii_alphabetic()) {
         return None;
     }
     // Legacy `itunes.apple.com` links carry `id<digits>`; current `music.apple.com` ones don't.
-    let id = raw_id.strip_prefix("id").filter(|d| is_decimal_id(d)).unwrap_or(raw_id);
+    let id = raw_id
+        .strip_prefix("id")
+        .filter(|d| is_decimal_id(d))
+        .unwrap_or(raw_id);
     if !is_decimal_id(id) {
         return None;
     }
     match kind {
-        "song" => Some(EntityRef { kind: EntityKind::Track, id: id.to_string() }),
+        "song" => Some(EntityRef {
+            kind: EntityKind::Track,
+            id: id.to_string(),
+        }),
         "album" => match query.split('&').find_map(|p| p.strip_prefix("i=")) {
-            Some(track_id) => is_decimal_id(track_id).then(|| EntityRef { kind: EntityKind::Track, id: track_id.to_string() }),
-            None => Some(EntityRef { kind: EntityKind::Album, id: id.to_string() }),
+            Some(track_id) => is_decimal_id(track_id).then(|| EntityRef {
+                kind: EntityKind::Track,
+                id: track_id.to_string(),
+            }),
+            None => Some(EntityRef {
+                kind: EntityKind::Album,
+                id: id.to_string(),
+            }),
         },
-        "artist" => Some(EntityRef { kind: EntityKind::Artist, id: id.to_string() }),
+        "artist" => Some(EntityRef {
+            kind: EntityKind::Artist,
+            id: id.to_string(),
+        }),
         // Playlists (and anything else) are not served by this API.
         _ => None,
     }
@@ -276,29 +327,68 @@ mod tests {
 
     macro_rules! fixture {
         ($path:literal) => {
-            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/itunes/", $path))
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../tests/fixtures/itunes/",
+                $path
+            ))
         };
     }
 
     #[test]
     fn songs_albums_artists_are_split() {
         let songs = parse_results(fixture!("search/search_song.json")).unwrap();
-        assert_eq!((songs.tracks.len(), songs.albums.len(), songs.artists.len(), songs.total), (2, 0, 0, 2));
+        assert_eq!(
+            (
+                songs.tracks.len(),
+                songs.albums.len(),
+                songs.artists.len(),
+                songs.total
+            ),
+            (2, 0, 0, 2)
+        );
         assert_eq!(songs.tracks[0].title, "Instant Crush");
         assert_eq!(songs.tracks[0].duration_ms, Some(337_562));
-        assert_eq!(songs.tracks[0].artists[0].name, "Daft Punk & Julian Casablancas");
+        assert_eq!(
+            songs.tracks[0].artists[0].name,
+            "Daft Punk & Julian Casablancas"
+        );
         assert_eq!(
             dbg(&songs.tracks[0].album),
-            dbg(Some(AlbumRef { id: Some("617154241".into()), title: "Random Access Memories".into() }))
+            dbg(Some(AlbumRef {
+                id: Some("617154241".into()),
+                title: "Random Access Memories".into()
+            }))
         );
 
         let albums = parse_results(fixture!("search/search_album.json")).unwrap();
-        assert_eq!((albums.tracks.len(), albums.albums.len(), albums.artists.len()), (0, 2, 0));
-        assert_eq!((albums.albums[0].title.as_str(), albums.albums[0].year, albums.albums[0].track_count), ("Random Access Memories", Some(2013), Some(14)));
+        assert_eq!(
+            (
+                albums.tracks.len(),
+                albums.albums.len(),
+                albums.artists.len()
+            ),
+            (0, 2, 0)
+        );
+        assert_eq!(
+            (
+                albums.albums[0].title.as_str(),
+                albums.albums[0].year,
+                albums.albums[0].track_count
+            ),
+            ("Random Access Memories", Some(2013), Some(14))
+        );
         assert_eq!(albums.albums[0].artists[0].name, "Daft Punk");
 
         let artists = parse_results(fixture!("search/search_artist.json")).unwrap();
-        assert_eq!((artists.tracks.len(), artists.albums.len(), artists.artists.len()), (0, 0, 2));
+        assert_eq!(
+            (
+                artists.tracks.len(),
+                artists.albums.len(),
+                artists.artists.len()
+            ),
+            (0, 0, 2)
+        );
         assert_eq!(artists.artists[0].id.as_str(), "5468295");
         assert_eq!(artists.artists[0].name, "Daft Punk");
     }
@@ -340,7 +430,14 @@ mod tests {
             {"wrapperType":"artist","artistId":2,"artistName":"A"}
         ]}"#;
         let parts = parse_results(body).unwrap();
-        assert_eq!(parts.tracks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>(), ["Good"]);
+        assert_eq!(
+            parts
+                .tracks
+                .iter()
+                .map(|t| t.title.as_str())
+                .collect::<Vec<_>>(),
+            ["Good"]
+        );
         assert_eq!(parts.artists.len(), 1);
         assert_eq!(parts.total, 3);
     }
@@ -402,7 +499,10 @@ mod tests {
             Some((EntityKind::Artist, "5468295".into()))
         );
         // A direct song link (no album context at all).
-        assert_eq!(link("https://music.apple.com/us/song/instant-crush/617154362"), Some((EntityKind::Track, "617154362".into())));
+        assert_eq!(
+            link("https://music.apple.com/us/song/instant-crush/617154362"),
+            Some((EntityKind::Track, "617154362".into()))
+        );
         // The region-redirected host, same shape.
         assert_eq!(
             link("https://geo.music.apple.com/fr/album/random-access-memories/617154241"),
@@ -414,9 +514,18 @@ mod tests {
             Some((EntityKind::Track, "617154362".into()))
         );
         // Playlists are not served by this API; another domain is not ours.
-        assert_eq!(link("https://music.apple.com/fr/playlist/french-touch/pl.abc123"), None);
+        assert_eq!(
+            link("https://music.apple.com/fr/playlist/french-touch/pl.abc123"),
+            None
+        );
         assert_eq!(link("https://open.spotify.com/album/617154241"), None);
-        assert_eq!(link("https://music.apple.com.evil.com/fr/album/x/617154241"), None);
-        assert_eq!(link("https://music.apple.com/fr/album/x/not-a-number"), None);
+        assert_eq!(
+            link("https://music.apple.com.evil.com/fr/album/x/617154241"),
+            None
+        );
+        assert_eq!(
+            link("https://music.apple.com/fr/album/x/not-a-number"),
+            None
+        );
     }
 }

@@ -5,8 +5,10 @@
 
 /// `text` to `(start_ms, line_text)` pairs, sorted by `start_ms`.
 pub fn parse_lrc(text: &str) -> Vec<(u32, String)> {
-    let mut out: Vec<(u32, String)> =
-        text.split('\n').flat_map(|line| parse_line(line.trim_end_matches('\r'))).collect();
+    let mut out: Vec<(u32, String)> = text
+        .split('\n')
+        .flat_map(|line| parse_line(line.trim_end_matches('\r')))
+        .collect();
     out.sort_by_key(|(ms, _)| *ms);
     out
 }
@@ -19,7 +21,9 @@ fn parse_line(line: &str) -> Vec<(u32, String)> {
     let mut rest = line;
     let mut times = Vec::new();
     while let Some(after_bracket) = rest.strip_prefix('[') {
-        let Some(end) = after_bracket.find(']') else { break };
+        let Some(end) = after_bracket.find(']') else {
+            break;
+        };
         match parse_timestamp(&after_bracket[..end]) {
             Some(ms) => {
                 times.push(ms);
@@ -54,7 +58,10 @@ fn parse_timestamp(inner: &str) -> Option<u32> {
         }
     };
     let ss: u32 = parse_digits(ss)?;
-    mm.checked_mul(60)?.checked_add(ss)?.checked_mul(1000)?.checked_add(frac_ms)
+    mm.checked_mul(60)?
+        .checked_add(ss)?
+        .checked_mul(1000)?
+        .checked_add(frac_ms)
 }
 
 /// Plain ASCII digits only (no sign, no whitespace); empty is refused.

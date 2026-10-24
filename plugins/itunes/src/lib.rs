@@ -32,7 +32,12 @@ const SEARCH_CAP: u32 = 200;
 struct Itunes;
 
 fn get(url: String) -> Result<Vec<u8>, Error> {
-    let req = Request { method: Method::Get, url, headers: vec![], body: None };
+    let req = Request {
+        method: Method::Get,
+        url,
+        headers: vec![],
+        body: None,
+    };
     let resp = host_http::send(&req).map_err(vehicoule_sdk::from_http_error)?;
     match api::status_error(resp.status) {
         Some(e) => Err(e),
@@ -41,7 +46,15 @@ fn get(url: String) -> Result<Vec<u8>, Error> {
 }
 
 fn search_url(term: &str, entity: &str, country: &str, limit: &str) -> String {
-    format!("{API}/search?{}", query(&[("term", term), ("entity", entity), ("country", country), ("limit", limit)]))
+    format!(
+        "{API}/search?{}",
+        query(&[
+            ("term", term),
+            ("entity", entity),
+            ("country", country),
+            ("limit", limit)
+        ])
+    )
 }
 
 fn lookup_url(id: &str, entity: &str, country: &str, limit: Option<&str>) -> String {
@@ -70,9 +83,18 @@ impl search::Guest for Itunes {
     /// below the cap means more may follow.
     fn search(req: search::SearchRequest) -> Result<search::SearchResults, Error> {
         use EntityKind::*;
-        let kinds: Vec<EntityKind> =
-            if req.kinds.is_empty() { vec![Track, Album, Artist] } else { req.kinds.into_iter().filter(|k| *k != Playlist).collect() };
-        let mut out = search::SearchResults { tracks: vec![], albums: vec![], artists: vec![], playlists: vec![], next: None };
+        let kinds: Vec<EntityKind> = if req.kinds.is_empty() {
+            vec![Track, Album, Artist]
+        } else {
+            req.kinds.into_iter().filter(|k| *k != Playlist).collect()
+        };
+        let mut out = search::SearchResults {
+            tracks: vec![],
+            albums: vec![],
+            artists: vec![],
+            playlists: vec![],
+            next: None,
+        };
         if kinds.is_empty() {
             return Ok(out); // Only playlists were asked for; iTunes has none.
         }
@@ -87,10 +109,16 @@ impl search::Guest for Itunes {
         let limit = end.to_string();
         let reqs: Vec<Request> = kinds
             .iter()
-            .map(|k| Request { method: Method::Get, url: search_url(&req.query, entity(k), &req.region, &limit), headers: vec![], body: None })
+            .map(|k| Request {
+                method: Method::Get,
+                url: search_url(&req.query, entity(k), &req.region, &limit),
+                headers: vec![],
+                body: None,
+            })
             .collect();
-        let bodies: Vec<Vec<u8>> =
-            vehicoule_sdk::send_batch_bodies(&reqs, api::status_error).into_iter().collect::<Result<_, Error>>()?;
+        let bodies: Vec<Vec<u8>> = vehicoule_sdk::send_batch_bodies(&reqs, api::status_error)
+            .into_iter()
+            .collect::<Result<_, Error>>()?;
         let mut full_page = false;
         for body in &bodies {
             let parts = api::parse_results(body)?;
@@ -111,11 +139,20 @@ impl entity::Guest for Itunes {
     /// The region is iTunes' own `country`, taken as given (ISO 3166-1 alpha-2, uppercase).
     /// `lookup` has no cursor to page through more, so a page is always the whole thing (up
     /// to `LOOKUP_LIMIT`) and `next` is always `none`.
-    fn fetch(target: EntityRef, region: String, _cursor: Option<String>) -> Result<EntityPage, Error> {
+    fn fetch(
+        target: EntityRef,
+        region: String,
+        _cursor: Option<String>,
+    ) -> Result<EntityPage, Error> {
         if !vehicoule_sdk::is_decimal_id(&target.id) {
             return Err(Error::NotFound);
         }
-        let page = |entity, tracks, albums| EntityPage { entity, tracks, albums, next: None };
+        let page = |entity, tracks, albums| EntityPage {
+            entity,
+            tracks,
+            albums,
+            next: None,
+        };
         match target.kind {
             EntityKind::Track => {
                 let track = api::parse_track(&get(lookup_url(&target.id, "song", &region, None))?)?;
@@ -155,12 +192,21 @@ mod tests {
     fn offset_parses_once_and_bounds_overflow() {
         assert_eq!(dbg(offset(None)), dbg(Ok::<u32, Error>(0)));
         assert_eq!(dbg(offset(Some("5"))), dbg(Ok::<u32, Error>(5)));
-        assert_eq!(dbg(offset(Some("4294967295"))), dbg(Ok::<u32, Error>(u32::MAX)));
+        assert_eq!(
+            dbg(offset(Some("4294967295"))),
+            dbg(Ok::<u32, Error>(u32::MAX))
+        );
         // Not a plain decimal: refused rather than sent on.
         assert!(matches!(offset(Some("-1")), Err(Error::Internal(_))));
         assert!(matches!(offset(Some("abc")), Err(Error::Internal(_))));
         // All digits but past `u32::MAX`: no such page, not an internal error.
-        assert_eq!(dbg(offset(Some("4294967296"))), dbg(Err::<u32, _>(Error::NotFound)));
-        assert_eq!(dbg(offset(Some("99999999999999999999"))), dbg(Err::<u32, _>(Error::NotFound)));
+        assert_eq!(
+            dbg(offset(Some("4294967296"))),
+            dbg(Err::<u32, _>(Error::NotFound))
+        );
+        assert_eq!(
+            dbg(offset(Some("99999999999999999999"))),
+            dbg(Err::<u32, _>(Error::NotFound))
+        );
     }
 }

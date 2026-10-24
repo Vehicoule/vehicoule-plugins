@@ -13,7 +13,7 @@ use crate::lrc::parse_lrc;
 
 const API: &str = "https://lrclib.net";
 /// A search hit counts as matching the query's duration within this many seconds either way.
-const DURATION_TOLERANCE_S: i64 = 2;
+const DURATION_TOLERANCE_S: f64 = 2.0;
 
 /// The fields read off an LRCLIB track record, shared by `/api/get` and each `/api/search`
 /// result.
@@ -49,12 +49,20 @@ fn search_fallback(track: &TrackQuery) -> Result<Lyrics, Error> {
         return Err(e);
     }
     let results: Vec<LrcTrack> = serde_json::from_slice(&resp.body).map_err(|e| Error::Internal(e.to_string()))?;
-    let wanted_s = track.duration_ms.map(|ms| (ms as f64 / 1000.0).round() as i64);
-    let picked = match wanted_s {
+    to_lyrics(pick(results, track.duration_ms).ok_or(Error::NotFound)?)
+}
+
+/// The first result within `DURATION_TOLERANCE_S` of `duration_ms`, or the first outright
+/// when there is no duration to match. The remote duration is compared in `f64`: a huge one
+/// cannot overflow, and a NaN one never matches.
+fn pick(results: Vec<LrcTrack>, duration_ms: Option<u32>) -> Option<LrcTrack> {
+    let wanted_s = duration_ms.map(|ms| (f64::from(ms) / 1000.0).round());
+    match wanted_s {
         None => results.into_iter().next(),
-        Some(wanted) => results.into_iter().find(|r| r.duration.is_some_and(|d| (d.round() as i64 - wanted).abs() <= DURATION_TOLERANCE_S)),
-    };
-    to_lyrics(picked.ok_or(Error::NotFound)?)
+        Some(wanted) => results
+            .into_iter()
+            .find(|r| r.duration.is_some_and(|d| (d.round() - wanted).abs() <= DURATION_TOLERANCE_S)),
+    }
 }
 
 /// `instrumental: true`, or neither plain nor synced text, is `not-found`: nothing to show.
@@ -128,6 +136,31 @@ mod tests {
     fn search_url_carries_no_album_or_duration() {
         let url = search_url(&track("Yesterday", "The Beatles", Some("Help!"), Some(126_000)));
         assert_eq!(url, "https://lrclib.net/api/search?track_name=Yesterday&artist_name=The+Beatles");
+    }
+
+    fn record(duration: Option<f64>, text: &str) -> LrcTrack {
+        LrcTrack { duration, instrumental: false, plain_lyrics: Some(text.into()), synced_lyrics: None }
+    }
+
+    #[test]
+    fn pick_takes_the_first_result_within_two_seconds() {
+        let results = vec![record(Some(130.0), "far"), record(Some(124.4), "near"), record(Some(126.0), "exact")];
+        assert_eq!(pick(results, Some(126_000)).and_then(|r| r.plain_lyrics).as_deref(), Some("near"));
+        let results = vec![record(None, "first"), record(Some(1.0), "second")];
+        assert_eq!(pick(results, None).and_then(|r| r.plain_lyrics).as_deref(), Some("first"));
+    }
+
+    /// LRCLIB's `duration` is remote input: a huge, infinite or NaN value must neither panic
+    /// (no integer overflow) nor pass as a match.
+    #[test]
+    fn pick_survives_absurd_remote_durations() {
+        for d in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 1e300, -1e300, f64::MAX, f64::MIN] {
+            for ms in [0, 1_000, 126_000, u32::MAX] {
+                let results = vec![record(Some(d), "absurd"), record(Some((ms / 1000) as f64), "real")];
+                let picked = pick(results, Some(ms)).and_then(|r| r.plain_lyrics);
+                assert_eq!(picked.as_deref(), Some("real"), "duration {d} vs {ms} ms");
+            }
+        }
     }
 
     #[test]

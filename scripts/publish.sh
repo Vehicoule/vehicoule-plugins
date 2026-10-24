@@ -13,7 +13,7 @@ usage() { echo "usage: $0 <output-dir>" >&2; exit 2; }
 
 if ! command -v vehicoule-feed >/dev/null 2>&1; then
     echo "error: vehicoule-feed not found on PATH. Install it with:" >&2
-    echo "  cargo install --git file:///Users/btw/Documents/repo/Vehicoule --tag plugin-host-v1.0.0 plugin-host --bin vehicoule-feed" >&2
+    echo "  cargo install --git file:///Users/btw/Documents/repo/Vehicoule --tag plugin-host-v1.1.0 plugin-host --bin vehicoule-feed" >&2
     exit 1
 fi
 if ! command -v jq >/dev/null 2>&1; then

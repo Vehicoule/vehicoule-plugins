@@ -8,8 +8,7 @@ members = ["tests", "plugins/deezer", "plugins/itunes", "plugins/lrclib"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
-# Google's Rust style guide, as clippy applies it. The wit-bindgen output opts out with an
-# `#[allow]` on its module.
+# Google's Rust style guide, as clippy applies it.
 [workspace.lints.clippy]
 unwrap_used = "warn"
 undocumented_unsafe_blocks = "warn"

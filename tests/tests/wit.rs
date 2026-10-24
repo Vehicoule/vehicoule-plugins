@@ -65,7 +65,7 @@ fn published_feed_verifies() {
     let keygen = Command::new("vehicoule-feed").arg("keygen").arg(&key_path).output().unwrap_or_else(|e| {
         panic!(
             "running `vehicoule-feed keygen`: {e}; install it with \
-             `cargo install --git file:///Users/btw/Documents/repo/Vehicoule --tag plugin-host-v1.0.0 plugin-host --bin vehicoule-feed`"
+             `cargo install --git file:///Users/btw/Documents/repo/Vehicoule --tag plugin-host-v1.1.0 plugin-host --bin vehicoule-feed`"
         )
     });
     assert!(

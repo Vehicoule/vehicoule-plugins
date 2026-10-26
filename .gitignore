@@ -1,3 +1,6 @@
 target/
 dist/
 .DS_Store
+
+# Clés de signature du feed — jamais dans le dépôt
+*.key

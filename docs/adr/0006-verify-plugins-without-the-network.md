@@ -1,6 +1,6 @@
 # 0006. Verify plugins without the network: tests, 32-bit runs, fuzzing, Kani where it fits, mutants
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Deciders: the user
 

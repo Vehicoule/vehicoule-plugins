@@ -1,6 +1,6 @@
 # 0003. Take Vehicoule's rules and foundations, and say which ones do not apply to plugins
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Deciders: the user
 

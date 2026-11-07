@@ -1,0 +1,69 @@
+# Licensing of every file in the repository, checked by `reuse lint` (ADR 0003, after Vehicoule's ADR 0009).
+# A file no annotation covers fails the check: a new top-level path, or a vendored file, needs its own entry.
+version = 1
+
+[[annotations]]
+path = [
+    ".github/**",
+    ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "Cargo.lock",
+    "Cargo.toml",
+    "README.md",
+    "REUSE.toml",
+    "SECURITY.md",
+    "_typos.toml",
+    "clippy.toml",
+    "conformance/**",
+    "deny.toml",
+    "docs/**",
+    "fuzz/**",
+    "plugins/**",
+    "rust-toolchain.toml",
+    "rustfmt.toml",
+    "scripts/**",
+    "template/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "The Vehicoule contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# The contract, copied from Vehicoule at the pinned commit (ADR 0002), under Vehicoule's license for it.
+[[annotations]]
+path = "wit/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The Vehicoule contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# Vendored sources keep their own license; their provenance files say where they come from.
+[[annotations]]
+path = ["reference/README.md", ".claude/skills/PROVENANCE.md"]
+precedence = "override"
+SPDX-FileCopyrightText = "The Vehicoule contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+[[annotations]]
+path = "reference/rust/google-rust-style-guide.md"
+precedence = "override"
+SPDX-FileCopyrightText = "Google"
+SPDX-License-Identifier = "CC-BY-3.0"
+
+[[annotations]]
+path = ".claude/skills/rust-best-practices/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Apollo GraphQL"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".claude/skills/rust-coding-guidelines/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The authors of https://github.com/actionbook/rust-skills"
+SPDX-License-Identifier = "MIT"
+
+# The Contributor Covenant 3.0, with this project's reporting address filled in.
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = "Organization for Ethical Source"
+SPDX-License-Identifier = "CC-BY-SA-4.0"

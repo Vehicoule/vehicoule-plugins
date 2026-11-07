@@ -1,0 +1,30 @@
+# Installs every component that `scripts/build-plugins.sh` builds in Vehicoule's plugin host, at the commit the copy
+# of the contract in `wit/` comes from (ADR 0002). `scripts/sync-contract.sh check` fails when the two differ.
+# Its own workspace: it builds Wasmtime, which the plugins never link, and is never shipped.
+[workspace]
+
+[package]
+name = "vehicoule-plugins-conformance"
+description = "Checks that every plugin of this repository installs in Vehicoule's plugin host"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99.1"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+# The plugin host itself, pinned to the commit of the contract copy: the app's own install checks, not a copy of them.
+# `version` is the host's own, so `cargo deny` does not count the dependency as a wildcard.
+vehicoule-plugin-host = { git = "https://github.com/Vehicoule/Vehicoule", rev = "4f61277577bb8ef7f01095566da49bea06d3d6ba", version = "0.0.0" }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+unreachable_pub = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"

@@ -1,0 +1,138 @@
+// The contract between Vehicoule's plugin host and its plugins.
+//
+// Rules: docs/plugin-host-spec.md (accepted 2026-11-06) and docs/adr/0007-plugin-host.md. A change to this file
+// changes the host and its tests in the same pull request; the plugin repositories bump their pinned copy in a pull
+// request of their own.
+
+package vehicoule:plugin@0.1.0;
+
+interface types {
+  enum domain { music, video, books }
+  enum capability { search, metadata, resolve, radio, artwork, lyrics, link-import }
+
+  record artwork { url: string, width: option<u32>, height: option<u32> }
+  record artist-ref { id: string, name: string }
+  record album-ref { id: string, title: string }
+  record track {
+    id: string,
+    title: string,
+    artists: list<artist-ref>,
+    album: option<album-ref>,
+    duration-ms: option<u64>,
+    isrc: option<string>,
+    artwork: list<artwork>,
+  }
+  record album { id: string, title: string, artists: list<artist-ref>, year: option<u16>, artwork: list<artwork> }
+  record artist { id: string, name: string, artwork: list<artwork> }
+  record playlist { id: string, title: string, owner: option<string>, artwork: list<artwork> }
+
+  variant item { track(track), album(album), artist(artist), playlist(playlist) }
+  enum item-kind { track, album, artist, playlist }
+
+  variant error {
+    not-found,
+    unsupported,
+    rate-limited(option<u64>),   // retry-after-ms, as told by the service; the core decides what to do with it
+    invalid-input(string),
+    upstream(string),            // the service failed or answered something the plugin cannot read
+  }
+}
+
+interface http {
+  enum method { get, head, post }
+  record request { method: method, url: string, headers: list<tuple<string, string>>, body: option<list<u8>> }
+  record response { status: u16, headers: list<tuple<string, string>>, body: list<u8> }
+  variant http-error { refused-host, refused-scheme, budget-exceeded, timeout, transport(string) }
+  fetch: func(req: request) -> result<response, http-error>;
+}
+
+interface log {
+  enum level { debug, info, warn, error }
+  log: func(level: level, message: string);
+}
+
+interface plugin {
+  use types.{domain, capability};
+  record manifest {
+    id: string,
+    name: string,
+    version: string,
+    domains: list<domain>,
+    capabilities: list<capability>,
+    http-hosts: list<string>,
+  }
+  describe: func() -> manifest;
+}
+
+interface search {
+  use types.{item, item-kind, error};
+  record page { items: list<item>, next: option<string> }
+  search: func(query: string, kinds: list<item-kind>, cursor: option<string>) -> result<page, error>;
+  suggest: func(prefix: string) -> result<list<string>, error>;
+}
+
+interface metadata {
+  use types.{track, album, artist, playlist, error};
+  record album-page { album: album, tracks: list<track> }
+  record artist-page { artist: artist, top-tracks: list<track>, albums: list<album> }
+  record playlist-page { playlist: playlist, tracks: list<track>, next: option<string> }
+  get-album: func(id: string) -> result<album-page, error>;
+  get-artist: func(id: string) -> result<artist-page, error>;
+  get-playlist: func(id: string, cursor: option<string>) -> result<playlist-page, error>;
+}
+
+interface resolve {
+  use types.{track, error};
+  record request {
+    track: track,                 // what to find; from this plugin or from another one
+    rejected: list<string>,       // ids the user said were the wrong match, never to be returned again
+    preferred: option<string>,    // an id the user chose as the right match
+  }
+  record playable {
+    url: string,
+    headers: list<tuple<string, string>>,
+    mime: option<string>,
+    valid-for-ms: option<u64>,    // relative, so the plugin needs no clock; the edge turns it into an expiry
+    matched-id: string,           // which provider item was chosen, so the user can reject it
+  }
+  resolve: func(req: request) -> result<playable, error>;
+}
+
+interface radio {
+  use types.{track, error};
+  continuation: func(seed: track, exclude: list<string>, count: u32) -> result<list<track>, error>;
+}
+
+interface artwork {
+  use types.{item, artwork, error};
+  find: func(of: item) -> result<list<artwork>, error>;
+}
+
+interface lyrics {
+  use types.{track, error};
+  record line { start-ms: u64, text: string }
+  variant text { plain(string), synced(list<line>) }
+  find: func(of: track) -> result<text, error>;
+}
+
+interface link-import {
+  use types.{item, error};
+  import-link: func(url: string) -> result<item, error>;
+}
+
+// What every plugin imports and exports.
+world base {
+  import http;
+  import log;
+  export plugin;
+}
+
+// One world per capability. A plugin's own world includes the ones it provides, for example
+// `world example { include search-plugin; include resolve-plugin; }`, so it exports exactly those interfaces.
+world search-plugin { include base; export search; }
+world metadata-plugin { include base; export metadata; }
+world resolve-plugin { include base; export resolve; }
+world radio-plugin { include base; export radio; }
+world artwork-plugin { include base; export artwork; }
+world lyrics-plugin { include base; export lyrics; }
+world link-import-plugin { include base; export link-import; }

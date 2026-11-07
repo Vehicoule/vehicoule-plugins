@@ -8,11 +8,12 @@ site may describe a newer version than the one this repository builds against.
 | What | Where | Pinned |
 |---|---|---|
 | The plugin contract (WIT) | [`wit/plugin.wit`](../wit/plugin.wit), a copy of Vehicoule's `wit/` | The Vehicoule commit in [`conformance/Cargo.toml`](../conformance/Cargo.toml), checked by `scripts/sync-contract.sh check` ([ADR 0002](adr/0002-pin-the-contract-and-check-plugins-in-the-real-host.md)) |
-| The plugin host spec, providers and threat model | https://github.com/Vehicoule/Vehicoule/tree/main/docs | Read them at the pinned commit |
+| The plugin host spec, providers, threat model and Vehicoule's ADRs 0007, 0012, 0013, 0014 | [`reference/vehicoule/docs/`](../reference/vehicoule/docs/), copied by `scripts/sync-contract.sh` | Same commit, checked in CI |
 | The plugin host | `vehicoule-plugin-host`, built by `conformance/` | Same commit |
-| Guest bindings | https://docs.rs/wit-bindgen | `0.63.0` in the root `Cargo.toml` |
+| Guest bindings | [`reference/wit-bindgen/`](../reference/wit-bindgen/): README and `src/lib.rs`, which documents `generate!` and `export!` | `0.63.0` in the root `Cargo.toml` |
 | Components | https://github.com/bytecodealliance/wasm-tools | `1.263.0`, installed by CI (`.github/workflows/ci.yml`) |
-| The component model and WIT | https://component-model.bytecodealliance.org | |
+| The WIT language | [`reference/component-model/WIT.md`](../reference/component-model/WIT.md) | `WebAssembly/component-model` at `d230073` |
+| The component model, explained | https://component-model.bytecodealliance.org | |
 
 ## Rust
 

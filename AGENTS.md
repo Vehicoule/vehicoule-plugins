@@ -30,11 +30,12 @@ test in CI shows it.
 2. The decisions: [`docs/adr/`](docs/adr/). They say what is settled and why. Do not reopen a decision without a new
    ADR that the user accepts.
 3. How a plugin crate is laid out, tested, fuzzed and proved: [`docs/plugin-crates.md`](docs/plugin-crates.md).
-4. The contract and the sandbox, in Vehicoule at the commit this repository pins (ADR 0002): the
-   [plugin host spec](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-host-spec.md), the
-   [plugin providers](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-providers.md) and the
-   [threat model](https://github.com/Vehicoule/Vehicoule/blob/main/docs/threat-model.md). The copy of the contract
-   itself is [`wit/plugin.wit`](wit/plugin.wit).
+4. The contract and the sandbox, in Vehicoule's documents at the commit this repository pins (ADR 0002), copied in
+   [`reference/vehicoule/docs/`](reference/vehicoule/docs/): the plugin host spec, the plugin providers, the threat
+   model, and Vehicoule's ADRs on the host, regression tests, fuzzing and Kani. The copy of the contract itself is
+   [`wit/plugin.wit`](wit/plugin.wit); the WIT language is in
+   [`reference/component-model/WIT.md`](reference/component-model/WIT.md), and every option of `wit-bindgen`'s macros
+   in [`reference/wit-bindgen/lib.rs`](reference/wit-bindgen/lib.rs), at the pinned versions.
 5. For Rust style: the `rust-best-practices` and `rust-coding-guidelines` skills in [`.claude/skills/`](.claude/skills/),
    and [`reference/rust/google-rust-style-guide.md`](reference/rust/google-rust-style-guide.md).
 

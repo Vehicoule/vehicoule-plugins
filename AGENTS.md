@@ -6,8 +6,8 @@ plugin host runs in a sandbox: it provides service-dependent capabilities (searc
 import, ...) for one service, reaches the network only through the host and only to the hosts it declares, and keeps
 nothing between calls. The contract between the host and the plugins lives in Vehicoule; this repository builds
 against a pinned copy of it. The plugins planned here are `deezer`, `itunes` and `lrclib` (Vehicoule,
-[`docs/plugin-providers.md`](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-providers.md)); none is
-written yet. Plugins that may be the target of takedown requests (`ytmusic`) live in
+[`docs/plugin-providers.md`](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-providers.md)); `lrclib`
+is written, `deezer` and `itunes` are not yet. Plugins that may be the target of takedown requests (`ytmusic`) live in
 [`vehicoule-plugins-extra`](https://github.com/Vehicoule/vehicoule-plugins-extra), under the same rules.
 
 This file is the rule book. Every agent, human or AI, reads it before touching the repository, and follows it over
@@ -135,11 +135,11 @@ request, and report what you ran.
 
 | Path | What it holds |
 |---|---|
-| `plugins/<id>/` | One plugin per crate, named after its manifest id; none yet ([layout](docs/plugin-crates.md)) |
+| `plugins/<id>/` | One plugin per crate, named after its manifest id ([layout](docs/plugin-crates.md)) |
 | `template/` | The crate a new plugin starts from; built and installed in CI like a plugin, never published |
 | `wit/` | The plugin contract, a copy pinned to a Vehicoule commit; never edited by hand (ADR 0002) |
 | `conformance/` | Installs every built plugin in Vehicoule's real plugin host, at the same commit (ADR 0002) |
-| `fuzz/` | cargo-fuzz targets, a workspace of its own on a pinned nightly; arrives with the first target (ADR 0006) |
+| `fuzz/` | cargo-fuzz targets, a workspace of its own on a pinned nightly (ADR 0006) |
 | `scripts/` | `build-plugins.sh`, `sync-contract.sh`, `check-layout.sh`, `prove.sh`, `fuzz.sh`: what CI runs, runnable anywhere |
 | `docs/adr/` | Decisions, numbered, one per file ([template](docs/adr/0000-template.md)) |
 | `docs/` | How plugin crates are written, and references |

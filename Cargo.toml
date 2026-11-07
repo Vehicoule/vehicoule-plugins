@@ -1,9 +1,8 @@
 [workspace]
 resolver = "3"
 # `template` is the crate a new plugin starts from; CI builds and installs it like a plugin, and it is never published.
-# Plugins are one crate each under `plugins/`, named after their manifest id (docs/plugin-crates.md); the first one
-# adds `"plugins/*"` here (Cargo refuses a pattern that matches no directory).
-members = ["template"]
+# Plugins are one crate each under `plugins/`, named after their manifest id (docs/plugin-crates.md).
+members = ["template", "plugins/*"]
 
 [workspace.package]
 version = "0.0.0"
@@ -19,6 +18,12 @@ publish = false
 # Generates the guest side of the contract in `wit/` (ADR 0001); the same version as the plugin host's test plugins
 # (Vehicoule, `crates/vehicoule-plugin-host/fixtures/Cargo.toml`).
 wit-bindgen = { version = "=0.63.0", default-features = false, features = ["macros", "realloc"] }
+# Read the JSON the services answer into structs that name only the fields a plugin uses. Every service of
+# Vehicoule's `docs/plugin-providers.md` answers in JSON. Agreed by the user on 2026-11-07 (AGENTS.md rule 11).
+# `serde_json` with its `std` feature only, as `vehicoule-plugins-extra` takes it: no float round-trip, no arbitrary
+# precision, and its default recursion limit of 128 levels, which bounds the stack a hostile document can take.
+serde = { version = "=1.0.229", default-features = false, features = ["std", "derive"] }
+serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
 # `deny`, not `forbid`: the bindings `wit-bindgen` generates hold `unsafe`, and are the one place allowed to (ADR 0005).
@@ -63,7 +68,8 @@ missing_docs_in_private_items = "allow"
 module_name_repetitions = "allow"
 
 # The size of a plugin is bounded by the host (Vehicoule, docs/plugin-host-spec.md, section 6). The same settings as
-# the plugin host's test plugins; their effect on size is not measured yet (no plugin exists).
+# the plugin host's test plugins; their effect on size is not measured (the size of each plugin with them is in its
+# pull request).
 [profile.release]
 opt-level = "s"
 panic = "abort"

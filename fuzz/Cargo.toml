@@ -1,0 +1,47 @@
+# Fuzz targets for everything the plugins read from outside (ADR 0006, AGENTS.md rule 15), run with cargo-fuzz on the
+# nightly toolchain that `rust-toolchain.toml` in this directory pins. Each target is named `<id>_<what>`
+# (docs/plugin-crates.md, section 4).
+# Its own workspace: it needs nightly and libFuzzer, is never shipped, and must not join the plugins' dependency graph.
+[workspace]
+
+[package]
+name = "vehicoule-plugins-fuzz"
+description = "Fuzz targets for what the plugins read from outside: services' answers and the tracks they are given"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+# libFuzzer's runtime, which is C++, and the `fuzz_target!` entry point; the same version as Vehicoule's fuzz
+# targets. The user agreed to this C++ dependency for the plugins' fuzz targets on 2026-11-07, as ADR 0006 asked,
+# for fuzzing only.
+libfuzzer-sys = "=0.4.13"
+vehicoule-plugin-lrclib = { path = "../plugins/lrclib", version = "0.0.0" }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[[bin]]
+name = "lrclib_get_response"
+path = "fuzz_targets/lrclib_get_response.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lrclib_synced_lyrics"
+path = "fuzz_targets/lrclib_synced_lyrics.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lrclib_request"
+path = "fuzz_targets/lrclib_request.rs"
+test = false
+doc = false
+bench = false

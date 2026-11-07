@@ -1,6 +1,6 @@
 # 0005. Allow `unsafe` only in the bindings that wit-bindgen generates
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Deciders: the user
 

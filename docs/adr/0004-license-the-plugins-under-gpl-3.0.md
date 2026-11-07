@@ -1,6 +1,6 @@
 # 0004. License the plugins under GPL-3.0
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Deciders: the user
 

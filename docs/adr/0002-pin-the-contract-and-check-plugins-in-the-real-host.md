@@ -1,6 +1,6 @@
 # 0002. Pin the contract to a Vehicoule commit, and install every plugin in that commit's host
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Deciders: the user
 

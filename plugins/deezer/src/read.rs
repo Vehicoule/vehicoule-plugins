@@ -515,17 +515,18 @@ pub fn read_suggestions(response: &Response) -> Result<Vec<String>, Error> {
 /// # Errors
 ///
 /// Those of [`check`] for either answer, and [`Error::Upstream`] for an answer that is not an album or a list of
-/// tracks, or for an album with more tracks than [`ALBUM_TRACKS_LIMIT`], which would come back cut.
+/// tracks, or for an album with more tracks than [`ALBUM_TRACKS_LIMIT`], which would come back cut, whether the
+/// album's count, a next page or the list itself says so.
 pub fn read_album(
     album_response: &Response,
     tracks_response: &Response,
 ) -> Result<AlbumPage, Error> {
     let raw: RawAlbum = parse(album_response, "album")?;
     let list: List<RawTrack> = parse(tracks_response, "album's tracks")?;
+    let too_many = |n: u64| n > u64::from(ALBUM_TRACKS_LIMIT);
     if list.next.is_some()
-        || raw
-            .nb_tracks
-            .is_some_and(|n| n > u64::from(ALBUM_TRACKS_LIMIT))
+        || raw.nb_tracks.is_some_and(too_many)
+        || u64::try_from(list.data.len()).map_or(true, too_many)
     {
         return Err(Error::Upstream(format!(
             "the album has more than {ALBUM_TRACKS_LIMIT} tracks, more than one answer holds"
@@ -584,7 +585,8 @@ pub fn read_artist(
 ///
 /// # Errors
 ///
-/// Those of [`check`], and [`Error::Upstream`] for an answer that is not a playlist with its tracks.
+/// Those of [`check`], and [`Error::Upstream`] for an answer that is not a playlist with its tracks and its track
+/// count, without which the plugin cannot tell whether a page follows and would cut the playlist short.
 pub fn read_playlist(index: u32, response: &Response) -> Result<PlaylistPage, Error> {
     let raw: RawPlaylist = parse(response, "playlist")?;
     let header = playlist(&raw);
@@ -592,10 +594,11 @@ pub fn read_playlist(index: u32, response: &Response) -> Result<PlaylistPage, Er
         .tracks
         .ok_or_else(|| Error::Upstream(String::from("Deezer's playlist has no tracks field")))?
         .data;
-    let count = count(&tracks)?;
-    let has_next = raw
+    let total = raw
         .nb_tracks
-        .is_some_and(|total| u64::from(index).saturating_add(u64::from(count)) < total);
+        .ok_or_else(|| Error::Upstream(String::from("Deezer's playlist has no track count")))?;
+    let count = count(&tracks)?;
+    let has_next = u64::from(index).saturating_add(u64::from(count)) < total;
     Ok(PlaylistPage {
         playlist: header,
         tracks: tracks.into_iter().map(|t| track(t, None)).collect(),

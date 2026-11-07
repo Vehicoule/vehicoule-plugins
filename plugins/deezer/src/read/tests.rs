@@ -328,6 +328,25 @@ fn an_album_with_more_tracks_than_one_answer_is_refused_not_cut() {
     );
     let full = album_json().replace(r#""nb_tracks":2"#, r#""nb_tracks":1000"#);
     assert!(read_album(&ok(&full), &ok(&list(&[], false))).is_ok());
+    // A list longer than asked, with no next page and no count to say so, is refused too.
+    let uncounted = album_json().replace(r#""nb_tracks":2,"#, "");
+    let tracks = |n: usize| {
+        vec![String::from(r#"{"id":1,"title":"T","artist":{"id":7,"name":"The Owls"}}"#); n]
+    };
+    assert_eq!(
+        upstream(read_album(
+            &ok(&uncounted),
+            &ok(&list(&tracks(1001), false))
+        )),
+        message
+    );
+    assert_eq!(
+        read_album(&ok(&uncounted), &ok(&list(&tracks(1000), false)))
+            .unwrap()
+            .tracks
+            .len(),
+        1000
+    );
 }
 
 #[test]
@@ -412,14 +431,17 @@ fn reads_a_playlist_page_with_its_next_cursor_while_tracks_remain() {
 }
 
 #[test]
-fn a_playlist_without_tracks_or_count_is_read_as_such() {
+fn a_playlist_without_tracks_or_count_is_upstream() {
     let no_tracks = format!(r#"{{"id":900,"title":"Road Mix",{PICTURES}}}"#);
     assert_eq!(
         upstream(read_playlist(0, &ok(&no_tracks))),
         "Deezer's playlist has no tracks field"
     );
     let no_count = playlist_json(1, &[track_json()]).replace(r#""nb_tracks":1,"#, "");
-    assert_eq!(read_playlist(0, &ok(&no_count)).unwrap().next, None);
+    assert_eq!(
+        upstream(read_playlist(0, &ok(&no_count))),
+        "Deezer's playlist has no track count"
+    );
 }
 
 #[test]

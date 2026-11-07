@@ -12,6 +12,7 @@
   of it, and every plugin's bindings are generated from it.
 - Whether a component that only implements an interface is a work based on the program that loads it is a legal
   question this ADR does not answer. Under the same license, the question does not arise for the plugins written here.
+- `vehicoule-plugins-extra` has the same ADR, with the same recommendation, so both repositories stay under one license.
 - Third parties may want to write plugins under another license. That depends on the contract's license, which is
   decided in Vehicoule, not here.
 

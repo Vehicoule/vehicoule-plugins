@@ -58,6 +58,8 @@ And the CI of Vehicoule:
 
 ## Consequences
 
+- `vehicoule-plugins-extra` has the same ADR; a change to one is made to the other, unless it is about mirroring,
+  which only that repository does.
 - AGENTS.md carries Vehicoule's rules, adapted, and three of its own: everything read from outside is fuzzed (15), a
   plugin's text is never the app's (16), a plugin reports and the core decides (17).
 - A Vehicoule decision taken later does not apply here by itself: it comes with its own ADR here, or a line in this

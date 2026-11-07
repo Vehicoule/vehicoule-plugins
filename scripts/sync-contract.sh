@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
-# Keeps the copy of the plugin contract in `wit/` on the Vehicoule commit that `conformance/Cargo.toml` pins the plugin
-# host to (ADR 0002): the plugins build against the contract the host of that commit enforces.
+# Keeps the copy of the plugin contract in `wit/`, and the copies of Vehicoule's plugin documents in
+# `reference/vehicoule/`, on the Vehicoule commit that `conformance/Cargo.toml` pins the plugin host to (ADR 0002): the
+# plugins build against the contract the host of that commit enforces, and agents read the specs of that commit.
 #
-#   scripts/sync-contract.sh check          fail if wit/ differs from Vehicoule's wit/ at the pinned commit
+#   scripts/sync-contract.sh check          fail if wit/ or reference/vehicoule/ differs from Vehicoule at the pinned
+#                                           commit
 #   scripts/sync-contract.sh update [REV]   pin the host to REV (default: the newest commit of Vehicoule's main),
-#                                           copy its wit/ and refresh conformance/Cargo.lock
+#                                           copy its wit/ and documents, and refresh conformance/Cargo.lock
 #
 # VEHICOULE_REPO overrides where Vehicoule is fetched from (default: its GitHub repository), for a mirror.
 set -euo pipefail
 
 repo_url="${VEHICOULE_REPO:-https://github.com/Vehicoule/Vehicoule}"
 manifest="conformance/Cargo.toml"
+# Vehicoule's documents about plugins, copied under reference/vehicoule/ with the same paths.
+documents=(
+    docs/plugin-host-spec.md
+    docs/plugin-providers.md
+    docs/threat-model.md
+    docs/adr/0007-plugin-host.md
+    docs/adr/0012-one-regression-test-per-fixed-bug.md
+    docs/adr/0013-fuzz-the-plugin-hosts-untrusted-inputs.md
+    docs/adr/0014-prove-the-plugin-host-checks-with-kani.md
+)
 
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
@@ -50,17 +62,34 @@ if [[ ! -d "$work/wit" ]]; then
     exit 1
 fi
 
-if [[ "$mode" == "check" ]]; then
-    if ! diff -r "$work/wit" wit; then
-        echo "error: wit/ differs from Vehicoule $rev; run scripts/sync-contract.sh update $rev" >&2
+expected="$work/expected"
+mkdir -p "$expected"
+for document in "${documents[@]}"; do
+    if [[ ! -f "$work/$document" ]]; then
+        echo "error: Vehicoule $rev has no $document" >&2
         exit 1
     fi
-    echo "wit/ matches Vehicoule $rev"
-    exit 0
+    mkdir -p "$expected/$(dirname "$document")"
+    cp "$work/$document" "$expected/$document"
+done
+
+if [[ "$mode" == "check" ]]; then
+    status=0
+    if ! diff -r "$work/wit" wit; then
+        echo "error: wit/ differs from Vehicoule $rev; run scripts/sync-contract.sh update $rev" >&2
+        status=1
+    fi
+    if ! diff -r "$expected" reference/vehicoule; then
+        echo "error: reference/vehicoule/ differs from Vehicoule $rev; run scripts/sync-contract.sh update $rev" >&2
+        status=1
+    fi
+    [[ "$status" -eq 0 ]] && echo "wit/ and reference/vehicoule/ match Vehicoule $rev"
+    exit "$status"
 fi
 
-rm -rf wit
+rm -rf wit reference/vehicoule
 cp -R "$work/wit" wit
+cp -R "$expected" reference/vehicoule
 if [[ "$rev" != "$current" ]]; then
     sed -i.bak "s/rev = \"$current\"/rev = \"$rev\"/" "$manifest" && rm -f "$manifest.bak"
     # Resolves the new rev into conformance/Cargo.lock without updating anything else.

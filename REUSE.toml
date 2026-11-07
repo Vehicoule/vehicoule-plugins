@@ -61,6 +61,26 @@ precedence = "override"
 SPDX-FileCopyrightText = "The authors of https://github.com/actionbook/rust-skills"
 SPDX-License-Identifier = "MIT"
 
+# Vehicoule's documents about plugins, copied at the pinned commit by scripts/sync-contract.sh (ADR 0002).
+[[annotations]]
+path = "reference/vehicoule/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The Vehicoule contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# wit-bindgen is offered under "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"; its copy here is taken under MIT.
+[[annotations]]
+path = "reference/wit-bindgen/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The wit-bindgen contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "reference/component-model/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The WebAssembly component model contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
 # The Contributor Covenant 3.0, with this project's reporting address filled in.
 [[annotations]]
 path = "CODE_OF_CONDUCT.md"

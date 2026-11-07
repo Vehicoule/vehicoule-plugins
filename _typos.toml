@@ -1,3 +1,4 @@
 # The license texts in LICENSES/ are copied verbatim, as REUSE requires; CC BY 3.0 spells "MERCHANTIBILITY".
+# Vendored sources are never edited by hand (reference/README.md); wit-bindgen's documentation spells "interfac".
 [files]
-extend-exclude = ["LICENSES/"]
+extend-exclude = ["LICENSES/", "reference/wit-bindgen/"]

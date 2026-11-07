@@ -1,7 +1,7 @@
 # Plugin crates: layout, tests, fuzzing and proofs
 
 - Status: Accepted
-- Scope: how every plugin of this repository is written, so that the first one (`deezer`, `itunes` or `lrclib`) and
+- Scope: how every plugin of this repository is written, so that the first ones (`lrclib`, then `deezer`) and
   every later one look the same and are checked the same way. What a plugin provides is decided in Vehicoule
   ([plugin providers](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-providers.md)); what the host
   enforces, in its [spec](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-host-spec.md).

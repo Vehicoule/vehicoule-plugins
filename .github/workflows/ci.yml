@@ -1,0 +1,292 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # To run CI by hand on any branch from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its run on the older commit, which nobody needs any more. Each run on `main`
+# has a group of its own, so a merge never cancels the run of the merge before it: every commit on `main` is
+# checked, and its caches are saved.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # No debug information: each build compiles, links and caches less. Panics still name their file and line, and it
+  # changes no code that runs.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  RUSTFLAGS: -D warnings
+
+# Every checkout sets `persist-credentials: false`: no job pushes, so the token is not left on disk for the steps
+# that run code from the pull request (zizmor's `artipacked` audit).
+# Every Rust cache is saved by `main` only: pull requests read its entries and cannot share theirs, so their saves only
+# took space from `main`'s under the repository's cache limit.
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Layout of the plugins
+        run: scripts/check-layout.sh
+      - name: Format
+        run: |
+          cargo fmt --all --check
+          cargo fmt --manifest-path conformance/Cargo.toml --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # The `bindings` glue that links the exports is compiled only for Wasm (ADR 0005).
+      - name: Clippy for Wasm
+        run: cargo clippy --workspace --all-targets --locked --target wasm32-unknown-unknown -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Docs
+        run: cargo doc --workspace --no-deps --document-private-items --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  # The plugins ship for `wasm32-unknown-unknown`, a 32-bit target where `usize` has 32 bits: the no-overflow rule
+  # (AGENTS.md, rule 9) must hold there, and `check` only runs 64-bit (ADR 0006). i686 runs natively on the x86-64
+  # runner, so no emulator is needed.
+  test-32-bit:
+    name: test (i686)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain and its i686 target
+        run: |
+          rustup toolchain install
+          rustup target add i686-unknown-linux-gnu
+      - name: Install the 32-bit C runtime for linking
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Test
+        run: cargo test --workspace --target i686-unknown-linux-gnu --locked
+
+  # ADR 0002: `wit/` is Vehicoule's at the pinned commit, and every plugin, built to a component, installs in the plugin
+  # host of that same commit.
+  conformance:
+    name: conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            . -> target
+            conformance -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: The contract is Vehicoule's at the pinned commit
+        run: scripts/sync-contract.sh check
+      - name: Install wasm-tools
+        run: cargo install wasm-tools --version 1.263.0 --locked --no-default-features --features component
+      - name: Build every plugin to a component
+        run: scripts/build-plugins.sh "$RUNNER_TEMP/plugins"
+      - name: Clippy
+        run: cargo clippy --manifest-path conformance/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Install every plugin in the host
+        run: cargo test --manifest-path conformance/Cargo.toml --locked
+        env:
+          VEHICOULE_PLUGINS: ${{ runner.temp }}/plugins
+
+  # ADR 0006: a mutant that survives the tests means a test that asserts too little, and fails the check. Unsharded
+  # while the code is small; Vehicoule shards it in four once one runner took 10 to 19 minutes.
+  mutants:
+    name: mutants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Mutation testing
+        run: cargo mutants --workspace --cargo-arg=--locked --in-place
+
+  # ADR 0006: proofs of the functions that read bytes by hand, beside them in `#[cfg(kani)]` modules. None exists before
+  # the first plugin: the job says so and stops before installing Kani. Once one exists, `scripts/prove.sh` fails
+  # unless Kani verifies exactly as many harnesses as it lists, and at least one.
+  kani:
+    name: kani
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Look for proofs
+        id: proofs
+        run: |
+          if grep -rqs --include='*.rs' 'cfg(kani)' template plugins; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Kani proof in the repository yet (ADR 0006): nothing to prove."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install the pinned toolchain
+        if: steps.proofs.outputs.found == 'true'
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.proofs.outputs.found == 'true'
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install Kani
+        if: steps.proofs.outputs.found == 'true'
+        # `cargo kani setup` downloads the CBMC bundle and the nightly toolchain that this Kani version is built for.
+        run: |
+          cargo install kani-verifier --version 0.68.0 --locked
+          cargo kani setup
+      - name: Prove every harness
+        if: steps.proofs.outputs.found == 'true'
+        run: scripts/prove.sh
+
+  # ADR 0006: every input a plugin reads from outside is fuzzed, in `fuzz/`, a workspace of its own on the nightly that
+  # `fuzz/rust-toolchain.toml` pins. It arrives with the first plugin: until then the job says so and stops.
+  # `scripts/fuzz.sh` runs each target for a fixed number of inputs from a fixed seed, never for a time.
+  fuzz:
+    name: fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Look for fuzz targets
+        id: targets
+        run: |
+          if [ -f fuzz/Cargo.toml ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No fuzz/ workspace yet (ADR 0006): it arrives with the first plugin's targets."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install the pinned toolchains
+        if: steps.targets.outputs.found == 'true'
+        # The stable one builds the tools; the nightly one, named in fuzz/, the targets.
+        run: |
+          rustup toolchain install
+          (cd fuzz && rustup toolchain install)
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.targets.outputs.found == 'true'
+        with:
+          workspaces: fuzz -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install cargo-fuzz
+        if: steps.targets.outputs.found == 'true'
+        run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Fuzz every target
+        if: steps.targets.outputs.found == 'true'
+        run: scripts/fuzz.sh
+
+  deny:
+    name: deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Installed at a pinned version like every other tool, so the same command runs outside GitHub (ADR 0003).
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.20.2 --locked
+      - name: Check the plugins' dependencies
+        run: cargo deny check
+      - name: Check the conformance test's dependencies
+        run: cargo deny --manifest-path conformance/Cargo.toml check
+      - name: Check the fuzz targets' dependencies
+        run: |
+          if [ -f fuzz/Cargo.toml ]; then
+            cargo deny --manifest-path fuzz/Cargo.toml check
+          else
+            echo "No fuzz/ workspace yet."
+          fi
+
+  # Spelling mistakes in code, comments and docs; everything in the repository is in English.
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install typos
+        run: cargo install typos-cli --version 1.52.0 --locked
+      - name: Spell check
+        run: typos
+
+  # A dependency no crate uses still widens the supply chain and the build (AGENTS.md, rule 11).
+  machete:
+    name: machete
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install cargo-machete
+        run: cargo install cargo-machete --version 0.9.2 --locked
+      - name: Find unused dependencies
+        run: cargo machete
+
+  # The workflows run code from every pull request with the repository's token: audit them for the known ways that
+  # goes wrong (injection, leaked credentials, unpinned or impostor actions).
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install zizmor
+        run: cargo install zizmor --version 1.32.0 --locked
+      - name: Audit the workflows
+        # The token, read-only here, lets the online audits check the pinned actions against GitHub.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor .github/workflows/

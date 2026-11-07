@@ -115,15 +115,16 @@ VEHICOULE_PLUGINS="$OUT" cargo test --manifest-path conformance/Cargo.toml --loc
 cargo deny check                                   # cargo-deny 0.20.2
 cargo deny --manifest-path conformance/Cargo.toml check
 cargo mutants --workspace --cargo-arg=--locked     # cargo-mutants 27.1.0
-cargo kani --workspace                             # Kani 0.68.0, once a proof exists (ADR 0006)
+scripts/prove.sh                                   # Kani 0.68.0, after `cargo kani setup`; every proof (ADR 0006)
 typos                                              # typos-cli 1.52.0
 cargo machete                                      # cargo-machete 0.9.2, no unused dependency
 zizmor .github/workflows/                          # zizmor 1.32.0, the workflows' security audit
 reuse lint                                         # reuse 6.3.0 (ADR 0003)
-# Once the first fuzz target exists, in fuzz/, on its pinned nightly (cargo-fuzz 0.13.2, ADR 0006):
-cargo fuzz build
-cargo fuzz run <target> -- -seed=1 -runs=200000
+scripts/fuzz.sh                                    # cargo-fuzz 0.13.2, fuzz/'s pinned nightly; every target (ADR 0006)
 ```
+
+`scripts/prove.sh` and `scripts/fuzz.sh` say so and succeed while no proof or fuzz target exists; they run as soon as
+one does.
 
 The toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Run the full list before opening a pull
 request, and report what you ran.
@@ -137,7 +138,7 @@ request, and report what you ran.
 | `wit/` | The plugin contract, a copy pinned to a Vehicoule commit; never edited by hand (ADR 0002) |
 | `conformance/` | Installs every built plugin in Vehicoule's real plugin host, at the same commit (ADR 0002) |
 | `fuzz/` | cargo-fuzz targets, a workspace of its own on a pinned nightly; arrives with the first target (ADR 0006) |
-| `scripts/` | `build-plugins.sh`, `sync-contract.sh`, `check-layout.sh` |
+| `scripts/` | `build-plugins.sh`, `sync-contract.sh`, `check-layout.sh`, `prove.sh`, `fuzz.sh`: what CI runs, runnable anywhere |
 | `docs/adr/` | Decisions, numbered, one per file ([template](docs/adr/0000-template.md)) |
 | `docs/` | How plugin crates are written, and references |
 | `reference/` | Vendored sources of truth, pinned, never edited by hand |

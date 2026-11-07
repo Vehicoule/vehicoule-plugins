@@ -1,0 +1,6 @@
+[toolchain]
+# cargo-fuzz instruments the code with flags only nightly accepts (ADR 0006). The same nightly as Vehicoule's fuzz
+# targets; a newer one is a pull request of its own, with CI green.
+channel = "nightly-2026-11-01"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

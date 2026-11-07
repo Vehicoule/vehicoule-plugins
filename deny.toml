@@ -23,6 +23,13 @@ allow = [
 ]
 confidence-threshold = 0.93
 
+# libFuzzer, inside libfuzzer-sys, is under LLVM's former NCSA license, which is GPL-3.0 compatible. Only the fuzz
+# targets use it, which are never shipped (ADR 0006); `cargo deny` checks their workspace with this file. The same
+# exception as Vehicoule's `deny.toml`.
+[[licenses.exceptions]]
+crate = "libfuzzer-sys"
+allow = ["NCSA"]
+
 # The workspace's own crates are GPL-3.0-only and never published; their license is decided by ADR 0004, and
 # Vehicoule's plugin host, which `conformance/` builds, by Vehicoule's ADR 0006.
 [licenses.private]

@@ -1,0 +1,5 @@
+# cargo-mutants configuration (ADR 0006). Every surviving mutant fails CI.
+
+# Code compiled only under Kani: mutation testing runs the tests, which never build it. The proofs check it instead.
+# The same rule as Vehicoule's `.cargo/mutants.toml`.
+exclude_globs = ["plugins/*/src/**/proofs.rs"]

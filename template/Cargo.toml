@@ -1,0 +1,20 @@
+[package]
+name = "vehicoule-plugin-template"
+description = "The crate a new plugin starts from: it describes itself, provides nothing and reaches no host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+# `cdylib` is the Wasm module turned into a component; `rlib` lets the tests, the fuzz targets and the Kani proofs
+# reach the plugin's code (docs/plugin-crates.md).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wit-bindgen.workspace = true
+
+[lints]
+workspace = true

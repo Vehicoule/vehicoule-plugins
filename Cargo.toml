@@ -1,0 +1,69 @@
+[workspace]
+resolver = "3"
+# `template` is the crate a new plugin starts from; CI builds and installs it like a plugin, and it is never published.
+# Plugins are one crate each under `plugins/`, named after their manifest id (docs/plugin-crates.md); the first one
+# adds `"plugins/*"` here (Cargo refuses a pattern that matches no directory).
+members = ["template"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99.1"
+repository = "https://github.com/Vehicoule/vehicoule-plugins"
+license = "GPL-3.0-only"
+publish = false
+
+# Every dependency is declared here once; crates write `.workspace = true`.
+# Adding one needs a one-line justification in the pull request (AGENTS.md rule 11).
+[workspace.dependencies]
+# Generates the guest side of the contract in `wit/` (ADR 0001); the same version as the plugin host's test plugins
+# (Vehicoule, `crates/vehicoule-plugin-host/fixtures/Cargo.toml`).
+wit-bindgen = { version = "=0.63.0", default-features = false, features = ["macros", "realloc"] }
+
+[workspace.lints.rust]
+# `deny`, not `forbid`: the bindings `wit-bindgen` generates hold `unsafe`, and are the one place allowed to (ADR 0005).
+unsafe_code = "deny"
+missing_docs = "deny"
+unreachable_pub = "deny"
+private_interfaces = "deny"
+private_bounds = "deny"
+unused_must_use = "deny"
+unused_qualifications = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+# Kani proof harnesses live under `cfg(kani)` (ADR 0006).
+unexpected_cfgs = { level = "deny", check-cfg = ["cfg(kani)"] }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# No panics in plugin code (AGENTS.md rule 9): in Wasm, a panic is a trap, and the call fails.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+indexing_slicing = "deny"
+# A plugin reads numbers from services it does not control, and ships for a 32-bit target: arithmetic is checked or
+# saturating, and says which.
+arithmetic_side_effects = "deny"
+# No debugging leftovers.
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+# Lints must be silenced with a reason that the compiler checks.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+# Floats are compared with a tolerance, never with ==.
+float_cmp = "deny"
+float_cmp_const = "deny"
+lossy_float_literal = "deny"
+# Clarity.
+missing_docs_in_private_items = "allow"
+module_name_repetitions = "allow"
+
+# The size of a plugin is bounded by the host (Vehicoule, docs/plugin-host-spec.md, section 6). The same settings as
+# the plugin host's test plugins; their effect on size is not measured yet (no plugin exists).
+[profile.release]
+opt-level = "s"
+panic = "abort"

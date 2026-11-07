@@ -1,0 +1,9 @@
+/target
+/conformance/target
+.DS_Store
+mutants.out*/
+# What cargo-fuzz builds and finds (ADR 0006): a crash found is fixed with a regression test, not kept here.
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
+/fuzz/coverage

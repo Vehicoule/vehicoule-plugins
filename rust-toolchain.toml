@@ -1,0 +1,7 @@
+[toolchain]
+# Pinned to the toolchain of Vehicoule's plugin host: a newer one is a pull request of its own, with CI green.
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+# Plugins ship as components built for this target (ADR 0001); the tests run on the host's own target.
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

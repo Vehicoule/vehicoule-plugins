@@ -1,0 +1,3 @@
+# The license texts in LICENSES/ are copied verbatim, as REUSE requires; CC BY 3.0 spells "MERCHANTIBILITY".
+[files]
+extend-exclude = ["LICENSES/"]

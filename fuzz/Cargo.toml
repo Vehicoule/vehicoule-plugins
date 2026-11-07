@@ -6,7 +6,7 @@
 
 [package]
 name = "vehicoule-plugins-fuzz"
-description = "Fuzz targets for what the plugins read from outside: services' answers and the tracks they are given"
+description = "Fuzz targets for what the plugins read from outside: services' answers, what the user types and the items they are given"
 version = "0.0.0"
 edition = "2024"
 license = "GPL-3.0-only"
@@ -20,6 +20,7 @@ cargo-fuzz = true
 # targets. The user agreed to this C++ dependency for the plugins' fuzz targets on 2026-11-07, as ADR 0006 asked,
 # for fuzzing only.
 libfuzzer-sys = "=0.4.13"
+vehicoule-plugin-deezer = { path = "../plugins/deezer", version = "0.0.0" }
 vehicoule-plugin-lrclib = { path = "../plugins/lrclib", version = "0.0.0" }
 
 [lints.rust]
@@ -42,6 +43,34 @@ bench = false
 [[bin]]
 name = "lrclib_request"
 path = "fuzz_targets/lrclib_request.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deezer_answer"
+path = "fuzz_targets/deezer_answer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deezer_pages"
+path = "fuzz_targets/deezer_pages.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deezer_link"
+path = "fuzz_targets/deezer_link.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deezer_request"
+path = "fuzz_targets/deezer_request.rs"
 test = false
 doc = false
 bench = false

@@ -2,7 +2,7 @@
 
 Content plugins for [Vehicoule](https://github.com/Vehicoule/Vehicoule): WebAssembly components, written in Rust, that
 the app runs in a sandbox to search, describe and illustrate music from public services. The planned plugins are
-`deezer`, `itunes` and `lrclib`; `lrclib` is written.
+`deezer`, `itunes` and `lrclib`; `lrclib` and `deezer` are written.
 
 Licensed under the [GNU General Public License v3.0](LICENSE) ([ADR 0004](docs/adr/0004-license-the-plugins-under-gpl-3.0.md)).
 

@@ -7,7 +7,7 @@ import, ...) for one service, reaches the network only through the host and only
 nothing between calls. The contract between the host and the plugins lives in Vehicoule; this repository builds
 against a pinned copy of it. The plugins planned here are `deezer`, `itunes` and `lrclib` (Vehicoule,
 [`docs/plugin-providers.md`](https://github.com/Vehicoule/Vehicoule/blob/main/docs/plugin-providers.md)); `lrclib`
-is written, `deezer` and `itunes` are not yet. Plugins that may be the target of takedown requests (`ytmusic`) live in
+and `deezer` are written, `itunes` is not yet. Plugins that may be the target of takedown requests (`ytmusic`) live in
 [`vehicoule-plugins-extra`](https://github.com/Vehicoule/vehicoule-plugins-extra), under the same rules.
 
 This file is the rule book. Every agent, human or AI, reads it before touching the repository, and follows it over

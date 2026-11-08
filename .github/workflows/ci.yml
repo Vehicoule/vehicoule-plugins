@@ -30,8 +30,47 @@ env:
 # Every Rust cache is saved by `main` only: pull requests read its entries and cannot share theirs, so their saves only
 # took space from `main`'s under the repository's cache limit.
 jobs:
+  # Sorts what a pull request changes, so that one changing only documentation does not take a runner for each check:
+  # the jobs that need `changes` then skip, and GitHub counts a skipped job as passed, required or not. The checks
+  # that read documentation too (spelling, licenses) do not need it and always run, and everything runs on `main` and
+  # by hand. The jobs test `!= 'false'`, so a failure here makes them all run rather than skip.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.sort.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The merge commit and its first parent, the base: what the pull request changes.
+          fetch-depth: 2
+      - name: See whether the pull request changes more than documentation
+        id: sort
+        env:
+          EVENT: ${{ github.event_name }}
+          # Read by no build, test, proof or tool but typos and reuse. `.claude/` and `reference/` are not in it: some
+          # repositories check them against a pinned source.
+          DOCS: '^(docs/|LICENSES/|[^/]+\.md$|\.github/CODEOWNERS$|\.github/pull_request_template\.md$)'
+        # `--no-renames` lists a moved file by its old path too, so moving one out of the code still counts.
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --no-renames --name-only HEAD^1 HEAD)
+          echo "$changed"
+          if [ -n "$changed" ] && ! grep -qvE "$DOCS" <<< "$changed"; then
+            echo "Only documentation changes: the checks of the code skip."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   check:
     name: check
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,6 +104,8 @@ jobs:
   # runner, so no emulator is needed.
   test-32-bit:
     name: test (i686)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,6 +129,8 @@ jobs:
   # host of that same commit.
   conformance:
     name: conformance
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,6 +161,8 @@ jobs:
   # while the code is small; Vehicoule shards it in four once one runner took 10 to 19 minutes.
   mutants:
     name: mutants
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,6 +183,8 @@ jobs:
   # unless Kani verifies exactly as many harnesses as it lists, and at least one.
   kani:
     name: kani
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,6 +221,8 @@ jobs:
   # `scripts/fuzz.sh` runs each target for a fixed number of inputs from a fixed seed, never for a time.
   fuzz:
     name: fuzz
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -208,6 +257,8 @@ jobs:
 
   deny:
     name: deny
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -254,6 +305,8 @@ jobs:
   # A dependency no crate uses still widens the supply chain and the build (AGENTS.md, rule 11).
   machete:
     name: machete
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

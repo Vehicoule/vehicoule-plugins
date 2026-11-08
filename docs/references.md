@@ -37,4 +37,4 @@ site may describe a newer version than the one this repository builds against.
 | Spell check | https://github.com/crate-ci/typos | `typos-cli` `1.52.0`, installed by CI |
 | Unused dependencies | https://github.com/bnjbvr/cargo-machete | `0.9.2`, installed by CI |
 | Workflow audit | https://docs.zizmor.sh | `zizmor` `1.32.0`, installed by CI |
-| Licensing of every file | https://reuse.software | `reuse` `6.3.0`, run by `.github/workflows/reuse.yml` |
+| Licensing of every file | https://reuse.software | `reuse` `6.3.0`, run by `.github/workflows/ci.yml` |

@@ -1,5 +1,6 @@
 name: CI
 
+# common: header
 on:
   pull_request:
   push:
@@ -16,6 +17,7 @@ permissions:
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
+# end common: header
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,6 +32,7 @@ env:
 # Every Rust cache is saved by `main` only: pull requests read its entries and cannot share theirs, so their saves only
 # took space from `main`'s under the repository's cache limit.
 jobs:
+  # common: changes
   # Sorts what a pull request changes, so that one changing only documentation does not take a runner for each check:
   # the jobs that need `changes` then skip, and GitHub counts a skipped job as passed, required or not. The checks
   # that read documentation too (spelling, licenses) do not need it and always run, and everything runs on `main` and
@@ -66,6 +69,7 @@ jobs:
           else
             echo "code=true" >> "$GITHUB_OUTPUT"
           fi
+  # end common: changes
 
   check:
     name: check
@@ -284,6 +288,7 @@ jobs:
             echo "No fuzz/ workspace yet."
           fi
 
+  # common: typos
   # Spelling mistakes in code, comments and docs; everything in the repository is in English.
   typos:
     name: typos
@@ -301,7 +306,9 @@ jobs:
         run: cargo install typos-cli --version 1.52.0 --locked
       - name: Spell check
         run: typos
+  # end common: typos
 
+  # common: machete
   # A dependency no crate uses still widens the supply chain and the build (AGENTS.md, rule 11).
   machete:
     name: machete
@@ -321,7 +328,9 @@ jobs:
         run: cargo install cargo-machete --version 0.9.2 --locked
       - name: Find unused dependencies
         run: cargo machete
+  # end common: machete
 
+  # common: zizmor
   # The workflows run code from every pull request with the repository's token: audit them for the known ways that
   # goes wrong (injection, leaked credentials, unpinned or impostor actions).
   zizmor:
@@ -343,3 +352,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: zizmor .github/workflows/
+      # The layout Vehicoule's four repositories share: the common blocks of this file, and the checkouts' tokens.
+      - name: Check the workflows' shared layout
+        run: |
+          scripts/test-check-workflows.sh
+          scripts/check-workflows.sh
+  # end common: zizmor
+
+  # ADR 0003 (after Vehicoule's ADR 0009): every file in the repository has its copyright and license declared, in
+  # REUSE.toml.
+  # common: reuse
+  reuse:
+    name: reuse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check licensing (reuse 6.3.0)
+        run: pipx run --spec reuse==6.3.0 reuse lint
+  # end common: reuse

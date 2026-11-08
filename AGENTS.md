@@ -123,6 +123,8 @@ scripts/prove.sh                                   # Kani 0.68.0, after `cargo k
 typos                                              # typos-cli 1.52.0
 cargo machete                                      # cargo-machete 0.9.2, no unused dependency
 zizmor .github/workflows/                          # zizmor 1.32.0, the workflows' security audit
+scripts/check-workflows.sh                         # the workflows follow the four repositories' shared layout
+scripts/test-check-workflows.sh                    # and that check passes its cases
 reuse lint                                         # reuse 6.3.0 (ADR 0003)
 scripts/fuzz.sh                                    # cargo-fuzz 0.13.2, fuzz/'s pinned nightly; every target (ADR 0006)
 ```
@@ -142,7 +144,7 @@ request, and report what you ran.
 | `wit/` | The plugin contract, a copy pinned to a Vehicoule commit; never edited by hand (ADR 0002) |
 | `conformance/` | Installs every built plugin in Vehicoule's real plugin host, at the same commit (ADR 0002) |
 | `fuzz/` | cargo-fuzz targets, a workspace of its own on a pinned nightly (ADR 0006) |
-| `scripts/` | `build-plugins.sh`, `sync-contract.sh`, `check-layout.sh`, `prove.sh`, `fuzz.sh`: what CI runs, runnable anywhere |
+| `scripts/` | `build-plugins.sh`, `sync-contract.sh`, `check-layout.sh`, `prove.sh`, `fuzz.sh`, `check-workflows.sh`: what CI runs, runnable anywhere |
 | `docs/adr/` | Decisions, numbered, one per file ([template](docs/adr/0000-template.md)) |
 | `docs/` | How plugin crates are written, and references |
 | `reference/` | Vendored sources of truth, pinned, never edited by hand |

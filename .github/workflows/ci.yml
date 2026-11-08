@@ -288,10 +288,13 @@ jobs:
             echo "No fuzz/ workspace yet."
           fi
 
-  # common: typos
-  # Spelling mistakes in code, comments and docs; everything in the repository is in English.
-  typos:
-    name: typos
+  # The reuse step of `lint` follows ADR 0003 (after Vehicoule's ADR 0009): every file in the repository has its
+  # copyright and license declared, in REUSE.toml.
+  # common: lint
+  # The quick checks of the whole repository share one job, so a pull request waits for one runner instead of four.
+  # Each check runs even when an earlier one failed, so one run reports every problem.
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -302,73 +305,34 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install typos
-        run: cargo install typos-cli --version 1.52.0 --locked
+      - name: Install typos, cargo-machete and zizmor
+        run: |
+          cargo install typos-cli --version 1.52.0 --locked
+          cargo install cargo-machete --version 0.9.2 --locked
+          cargo install zizmor --version 1.32.0 --locked
+      # Spelling mistakes in code, comments and docs; everything in the repository is in English.
       - name: Spell check
+        if: ${{ !cancelled() }}
         run: typos
-  # end common: typos
-
-  # common: machete
-  # A dependency no crate uses still widens the supply chain and the build (AGENTS.md, rule 11).
-  machete:
-    name: machete
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install cargo-machete
-        run: cargo install cargo-machete --version 0.9.2 --locked
+      # A dependency no crate uses still widens the supply chain and the build (AGENTS.md, rule 11).
       - name: Find unused dependencies
+        if: ${{ !cancelled() }}
         run: cargo machete
-  # end common: machete
-
-  # common: zizmor
-  # The workflows run code from every pull request with the repository's token: audit them for the known ways that
-  # goes wrong (injection, leaked credentials, unpinned or impostor actions).
-  zizmor:
-    name: zizmor
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install zizmor
-        run: cargo install zizmor --version 1.32.0 --locked
+      # The workflows run code from every pull request with the repository's token: audit them for the known ways that
+      # goes wrong (injection, leaked credentials, unpinned or impostor actions).
       - name: Audit the workflows
+        if: ${{ !cancelled() }}
         # The token, read-only here, lets the online audits check the pinned actions against GitHub.
         env:
           GH_TOKEN: ${{ github.token }}
         run: zizmor .github/workflows/
       # The layout Vehicoule's four repositories share: the common blocks of this file, and the checkouts' tokens.
       - name: Check the workflows' shared layout
+        if: ${{ !cancelled() }}
         run: |
           scripts/test-check-workflows.sh
           scripts/check-workflows.sh
-  # end common: zizmor
-
-  # ADR 0003 (after Vehicoule's ADR 0009): every file in the repository has its copyright and license declared, in
-  # REUSE.toml.
-  # common: reuse
-  reuse:
-    name: reuse
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - name: Check licensing (reuse 6.3.0)
+        if: ${{ !cancelled() }}
         run: pipx run --spec reuse==6.3.0 reuse lint
-  # end common: reuse
+  # end common: lint

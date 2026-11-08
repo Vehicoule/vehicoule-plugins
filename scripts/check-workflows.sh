@@ -15,15 +15,12 @@ ci="$root/.github/workflows/ci.yml"
 
 # The common blocks, and the SHA-256 of each, its marker lines left out. A `case` rather than an associative array:
 # macOS ships Bash 3.2.
-names="changes header machete reuse typos zizmor"
+names="changes header lint"
 expected() {
     case "$1" in
         changes) echo 18a4e41e06bf95cea585b942bc5412dcc93ef0557e44dd3ab03b8b20515bf20d ;;
         header) echo 692b8d5c25f02cc0688690d4bfbe57f1a0ed1e1bb2aef94d3721b3db5db9d3e0 ;;
-        machete) echo 1ca37aef35edac8cb3bd16b483ea4370e6ef4735b876f8c7d9c842e4b7a1f38e ;;
-        reuse) echo 6e605d72c65b78e0c4836591bff21d7567f85cf26476a734e0219d6e53d6173f ;;
-        typos) echo d58b19bb08ba0291aa40481b5e7c60eec526d10f04c8b523d21f4b798bab92c7 ;;
-        zizmor) echo df9591f7d937b9d5b04df8982cd2dad01aff4937432b3e45e53e7bc605eecc02 ;;
+        lint) echo 186fa84b4d7e72fc43f483159f8cbce975c0af23db4ae1402dbcfc0276510346 ;;
     esac
 }
 

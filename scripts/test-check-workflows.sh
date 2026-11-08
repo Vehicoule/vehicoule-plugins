@@ -32,11 +32,11 @@ case_() {
 
 ci=.github/workflows/ci.yml
 case_ pass "follow the shared layout" ":"
-case_ fail "common block 'typos' differs" \
-    "sed -i.bak '/# common: typos/,/# end common: typos/s/typos-cli --version [0-9.]*/typos-cli --version 0.0.1/' $ci"
+case_ fail "common block 'lint' differs" \
+    "sed -i.bak '/# common: lint/,/# end common: lint/s/typos-cli --version [0-9.]*/typos-cli --version 0.0.1/' $ci"
 case_ fail "common block 'changes' must appear once" "sed -i.bak '/# end common: changes/d' $ci"
 case_ fail "common block 'header' must appear once" "printf '# common: header\n# end common: header\n' >> $ci"
-case_ fail "'# common: lint' is not a common block" "printf '  # common: lint\n  # end common: lint\n' >> $ci"
+case_ fail "'# common: build' is not a common block" "printf '  # common: build\n  # end common: build\n' >> $ci"
 case_ fail "the checkout does not set persist-credentials" "cat > .github/workflows/extra.yml <<'YAML'
 jobs:
   one:

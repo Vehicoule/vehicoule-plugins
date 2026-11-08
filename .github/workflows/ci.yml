@@ -172,6 +172,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The merge commit and its first parent, the base: what the pull request changes.
+          fetch-depth: 2
       - name: Install the pinned toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -180,7 +182,17 @@ jobs:
       - name: Install cargo-mutants
         run: cargo install cargo-mutants --version 27.1.0 --locked
       - name: Mutation testing
-        run: cargo mutants --workspace --cargo-arg=--locked --in-place
+        # ADR 0007: a pull request tests only the mutants in the lines it changes against its base; a push to `main`
+        # tests them all, after each merge.
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          args=()
+          if [ "$EVENT" = pull_request ]; then
+            git diff HEAD^1 HEAD > "$RUNNER_TEMP/pull-request.diff"
+            args=(--in-diff "$RUNNER_TEMP/pull-request.diff")
+          fi
+          cargo mutants --workspace --cargo-arg=--locked --in-place "${args[@]}"
 
   # ADR 0006: proofs of the functions that read bytes by hand, beside them in `#[cfg(kani)]` modules. None exists before
   # the first plugin: the job says so and stops before installing Kani. Once one exists, `scripts/prove.sh` fails

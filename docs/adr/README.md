@@ -15,3 +15,4 @@ Only the user moves an ADR from Proposed to Accepted.
 | [0004](0004-license-the-plugins-under-gpl-3.0.md) | The plugins are licensed under GPL-3.0 | Accepted |
 | [0005](0005-allow-unsafe-only-in-the-generated-bindings.md) | `unsafe` only in the bindings that wit-bindgen generates | Accepted |
 | [0006](0006-verify-plugins-without-the-network.md) | Tests without the network, 32-bit runs, fuzzing, Kani where it fits, mutants | Accepted |
+| [0007](0007-test-only-the-changed-lines-mutants-on-pull-requests.md) | Pull requests test only the mutants in the lines they change; `main` tests them all | Accepted |

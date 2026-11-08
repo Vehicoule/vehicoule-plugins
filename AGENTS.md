@@ -118,7 +118,7 @@ scripts/build-plugins.sh "$OUT"                    # wasm-tools 1.263.0
 VEHICOULE_PLUGINS="$OUT" cargo test --manifest-path conformance/Cargo.toml --locked
 cargo deny check                                   # cargo-deny 0.20.2
 cargo deny --manifest-path conformance/Cargo.toml check
-cargo mutants --workspace --cargo-arg=--locked     # cargo-mutants 27.1.0
+cargo mutants --workspace --cargo-arg=--locked     # cargo-mutants 27.1.0; on a pull request, --in-diff (ADR 0007)
 scripts/prove.sh                                   # Kani 0.68.0, after `cargo kani setup`; every proof (ADR 0006)
 typos                                              # typos-cli 1.52.0
 cargo machete                                      # cargo-machete 0.9.2, no unused dependency
